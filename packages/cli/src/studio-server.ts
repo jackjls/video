@@ -158,6 +158,25 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
       if (tplMatch && tplMatch[1] && m === 'PUT') {
         const body = await readBody(req);
         const project = await ctx.orchestrator.setTemplate(tplMatch[1], body.template_id as string);
+        // Auto-seed preview with the template's own example.html so the user sees
+        // something immediately (before any chat-driven rewrite).
+        const tmpl = ctx.templates.get(body.template_id as string);
+        const exampleHtmlPath = join(tmpl.__dir!, tmpl.source_entry);
+        if (existsSync(exampleHtmlPath)) {
+          const html = await readFile(exampleHtmlPath, 'utf8');
+          await ctx.orchestrator.writePreviewHtmlRaw(project.id, html);
+        }
+        return json(res, 200, { project: await ctx.orchestrator.load(project.id) });
+      }
+
+      // Set agent (runtime selection)
+      const agentMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/agent$/);
+      if (agentMatch && agentMatch[1] && m === 'PUT') {
+        const body = await readBody(req);
+        const project = await ctx.orchestrator.setAgent(
+          agentMatch[1],
+          (body.agent_id as string) || null,
+        );
         return json(res, 200, { project });
       }
 
@@ -206,6 +225,8 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
       }
 
       // Messages: POST = send + stream agent reply via SSE
+      // v0.3: agent emits a complete HTML document; we capture it, write to project,
+      // and emit `preview_ready` so the frontend reloads the iframe.
       if (msgsMatch && msgsMatch[1] && m === 'POST') {
         const id = msgsMatch[1];
         const body = await readBody(req);
@@ -214,17 +235,41 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
 
         const project = await ctx.orchestrator.load(id);
         const tmpl = project.templateId ? ctx.templates.get(project.templateId) : null;
-        const agentDef = findAgent('claude');
-        if (!agentDef) return json(res, 400, { error: 'claude agent not registered' });
+        if (!tmpl) {
+          return json(res, 400, { error: 'pick a template first' });
+        }
+
+        const agentId = project.agentId ?? 'claude';
+        const agentDef = findAgent(agentId);
+        if (!agentDef) {
+          return json(res, 400, { error: `agent "${agentId}" not registered` });
+        }
 
         // Append user message to history
         const history = MESSAGES.get(id) ?? [];
         history.push({ role: 'user', content: userText, ts: Date.now() });
         MESSAGES.set(id, history);
 
-        // Compose system prompt with project context
-        const systemContext = renderSystemContext(project, tmpl);
-        const fullPrompt = `${systemContext}\n\n${userText}`;
+        // Compose prompt: load template's example HTML so agent has the visual skeleton
+        const exampleHtmlPath = join(tmpl.__dir!, tmpl.source_entry);
+        const exampleHtml = existsSync(exampleHtmlPath)
+          ? await readFile(exampleHtmlPath, 'utf8')
+          : '';
+
+        // Read prior assistant HTML if present (for iterative refinement)
+        const projectDir = await ctx.projects.ensureDir(id);
+        const priorHtmlPath = join(projectDir, 'preview.html');
+        const priorHtml = existsSync(priorHtmlPath)
+          ? await readFile(priorHtmlPath, 'utf8')
+          : '';
+
+        const fullPrompt = buildHtmlGenerationPrompt({
+          tmpl,
+          exampleHtml,
+          priorHtml,
+          history,
+          userText,
+        });
 
         // SSE response
         res.writeHead(200, {
@@ -232,7 +277,7 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           'cache-control': 'no-cache',
           connection: 'keep-alive',
         });
-        const projectDir = await ctx.projects.ensureDir(id);
+
         let assistantText = '';
         const handle = spawnAgent({
           def: agentDef,
@@ -241,16 +286,35 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           onEvent: (ev) => {
             if (ev.type === 'text') {
               assistantText += ev.chunk;
+              res.write(`data: ${JSON.stringify(ev)}\n\n`);
+            } else if (ev.type === 'error' || ev.type === 'message_end') {
+              res.write(`data: ${JSON.stringify(ev)}\n\n`);
             }
-            res.write(`data: ${JSON.stringify(ev)}\n\n`);
           },
         });
         await handle.done;
-        // Persist assistant message to history
+
+        // Try to extract a full HTML document from assistant output
+        const extracted = extractHtmlDocument(assistantText);
+        if (extracted) {
+          await ctx.orchestrator.writePreviewHtmlRaw(id, extracted);
+          res.write(`data: ${JSON.stringify({ type: 'preview_ready', preview_url: `/preview/${id}` })}\n\n`);
+        } else {
+          res.write(
+            `data: ${JSON.stringify({
+              type: 'warning',
+              message: 'Agent did not produce a full <!doctype html>...</html> document. Preview unchanged.',
+            })}\n\n`,
+          );
+        }
+
+        // Persist assistant message to history (text only — UI shows summary)
         history.push({
           role: 'assistant',
-          agent: 'claude',
-          content: assistantText,
+          agent: agentDef.id,
+          content: extracted
+            ? `Updated the HTML preview${assistantText.length > 0 ? '.' : '.'}`
+            : assistantText,
           ts: Date.now(),
         });
         MESSAGES.set(id, history);
@@ -429,21 +493,83 @@ interface ChatMessage {
 
 const MESSAGES = new Map<string, ChatMessage[]>();
 
-function renderSystemContext(
-  project: import('@html-video/core').Project,
-  tmpl: import('@html-video/core').TemplateMetadata | null,
-): string {
-  const lines: string[] = [];
-  lines.push(`You are an agent helping the user fill in a Hyperframes video template.`);
-  lines.push(`Project: "${project.name}" (${project.assets.length} assets)`);
-  if (tmpl) {
-    lines.push(`Template: ${tmpl.name} (id=${tmpl.id})`);
-    lines.push(`  description: ${tmpl.description}`);
-    lines.push(`  required vars: ${JSON.stringify((tmpl.inputs.schema as { required?: string[] }).required ?? [])}`);
-    lines.push(`Current variables: ${JSON.stringify(project.variables)}`);
-    lines.push(`Help the user complete the variables. When you suggest values, format them so the user can apply them. Keep replies concise.`);
-  } else {
-    lines.push(`No template selected yet. Help the user pick one from the dropdown.`);
+interface BuildPromptArgs {
+  tmpl: import('@html-video/core').TemplateMetadata;
+  exampleHtml: string;
+  priorHtml: string;
+  history: ChatMessage[];
+  userText: string;
+}
+
+/**
+ * v0.3 chat-to-HTML prompt.
+ * Tells the agent to produce a single complete HTML document inside ```html ... ```
+ * preserving the template's visual signature.
+ */
+function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
+  const { tmpl, exampleHtml, priorHtml, history, userText } = args;
+  const recentTurns = history.slice(-6); // last few turns for context
+
+  const parts: string[] = [];
+
+  parts.push(`# Role`);
+  parts.push(`You are a Hyperframes video template engineer. The user wants a single self-contained HTML video that opens with animation and is ready to be recorded to MP4.`);
+  parts.push('');
+
+  parts.push(`# Template — visual skeleton (do not change the visual signature)`);
+  parts.push(`Name: ${tmpl.name}`);
+  parts.push(`Category: ${tmpl.category}`);
+  parts.push(`Description: ${tmpl.description}`);
+  parts.push('');
+  parts.push('Reference example HTML (style, animation, layout to preserve):');
+  parts.push('```html');
+  parts.push(exampleHtml.slice(0, 12000));
+  parts.push('```');
+  parts.push('');
+
+  if (priorHtml) {
+    parts.push(`# Current preview HTML (the user is iterating on this)`);
+    parts.push('```html');
+    parts.push(priorHtml.slice(0, 12000));
+    parts.push('```');
+    parts.push('');
   }
-  return lines.join('\n');
+
+  if (recentTurns.length > 1) {
+    parts.push(`# Recent conversation`);
+    for (const t of recentTurns.slice(0, -1)) {
+      parts.push(`## ${t.role === 'user' ? 'User' : 'You'}`);
+      parts.push(t.content);
+    }
+    parts.push('');
+  }
+
+  parts.push(`# User request`);
+  parts.push(userText);
+  parts.push('');
+
+  parts.push(`# Output rules (STRICT)`);
+  parts.push(`- Reply with **one** complete HTML document inside a single \`\`\`html\`\`\` code block.`);
+  parts.push(`- Start with \`<!doctype html>\` and end with \`</html>\`.`);
+  parts.push(`- Inline all CSS and JS (no external imports beyond the CDN scripts already in the example).`);
+  parts.push(`- Preserve the template's visual signature (colors, animation timing, layout style) unless the user explicitly asks otherwise.`);
+  parts.push(`- Replace placeholder text/data with the user's actual content.`);
+  parts.push(`- Do **not** include any explanation outside the code block. The user will see the HTML rendered live; they don't need a written summary.`);
+
+  return parts.join('\n');
+}
+
+/**
+ * Extract a full HTML document from agent output.
+ * Tries (1) `\`\`\`html ... \`\`\`` block, (2) bare `<!doctype html>...</html>`.
+ */
+function extractHtmlDocument(text: string): string | null {
+  const fence = /```html\s*\n([\s\S]*?)```/i.exec(text);
+  if (fence && fence[1]) {
+    const html = fence[1].trim();
+    if (/<\/html>/i.test(html)) return html;
+  }
+  const bare = /<!doctype html[\s\S]*?<\/html>/i.exec(text);
+  if (bare) return bare[0];
+  return null;
 }

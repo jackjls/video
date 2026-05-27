@@ -275,9 +275,17 @@ export interface Project {
   intent?: string;
   assets: Asset[];
   templateId: string | null;
+  /** Agent runtime to use (detected agent id, e.g. "claude" / "cursor-agent"). null = default first available */
+  agentId?: string | null;
+  /**
+   * Free-form variables (RFC-02 inputs.schema compatible).
+   * v0.3+: deprecated as the user-facing primary surface — agents now produce HTML directly.
+   * Kept for adapter render() backward compatibility (engine still expects vars).
+   */
   variables: Record<string, unknown>;
   preferences: UserPreferences;
   status: ProjectStatus;
+  /** Path to the latest agent-generated HTML (v0.3 chat-to-HTML pipeline) */
   lastPreviewHtmlPath?: string;
   lastPreviewPosterPath?: string;
   lastOutputMp4Path?: string;

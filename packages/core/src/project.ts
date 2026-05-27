@@ -115,21 +115,9 @@ export class ProjectOrchestrator {
       throw new HtmlVideoError('template-not-found', `Template ${templateId} not found`);
     }
     project.templateId = templateId;
-    if (templateId !== null) {
-      // Keep variables whose keys exist in the new template's schema; drop the rest.
-      const tmpl = this.deps.templates.get(templateId);
-      const keys = extractTopLevelSchemaKeys(tmpl.inputs.schema);
-      const kept: Record<string, unknown> = {};
-      for (const k of keys) {
-        if (k in project.variables) kept[k] = project.variables[k];
-      }
-      // Apply defaults from schema for missing keys
-      const defaults = extractDefaults(tmpl.inputs.schema);
-      for (const [k, v] of Object.entries(defaults)) {
-        if (!(k in kept)) kept[k] = v;
-      }
-      project.variables = kept;
-    }
+    // v0.3: variables are no longer the user-facing surface. Reset on every
+    // template change so old keys don't bleed through into the new context.
+    project.variables = {};
     project.status = downgradeStatus(project.status, 'draft');
     await this.deps.projects.save(project);
     return project;
@@ -149,6 +137,29 @@ export class ProjectOrchestrator {
     project.status = downgradeStatus(project.status, 'draft');
     await this.deps.projects.save(project);
     return project;
+  }
+
+  async setAgent(projectId: string, agentId: string | null): Promise<Project> {
+    const project = await this.deps.projects.load(projectId);
+    project.agentId = agentId;
+    await this.deps.projects.save(project);
+    return project;
+  }
+
+  /**
+   * v0.3 chat-to-HTML: write raw HTML produced by an agent into the project's preview slot.
+   */
+  async writePreviewHtmlRaw(projectId: string, html: string): Promise<{ project: Project; htmlPath: string }> {
+    const project = await this.deps.projects.load(projectId);
+    const projectDir = await this.deps.projects.ensureDir(projectId);
+    const { writeFile } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const htmlPath = join(projectDir, 'preview.html');
+    await writeFile(htmlPath, html, 'utf8');
+    project.lastPreviewHtmlPath = htmlPath;
+    if (project.status === 'draft') project.status = 'previewed';
+    await this.deps.projects.save(project);
+    return { project, htmlPath };
   }
 
   // ---------------- Render: preview HTML / export MP4 ----------------
@@ -255,26 +266,3 @@ function downgradeStatus(current: ProjectStatus, target: ProjectStatus): Project
   return current;
 }
 
-interface JsonSchemaShape {
-  type?: string;
-  properties?: Record<string, { type?: string; default?: unknown }>;
-}
-
-function extractTopLevelSchemaKeys(schema: object): string[] {
-  const s = schema as JsonSchemaShape;
-  if (s.type === 'object' && s.properties) return Object.keys(s.properties);
-  return [];
-}
-
-function extractDefaults(schema: object): Record<string, unknown> {
-  const s = schema as JsonSchemaShape;
-  const out: Record<string, unknown> = {};
-  if (s.type === 'object' && s.properties) {
-    for (const [k, v] of Object.entries(s.properties)) {
-      if (v && typeof v === 'object' && 'default' in v && v.default !== undefined) {
-        out[k] = v.default;
-      }
-    }
-  }
-  return out;
-}
