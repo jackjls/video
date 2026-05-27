@@ -22,8 +22,9 @@ const state = {
   selected: null,
   messages: [],
   composing: false,
-  textFields: [],          // [{key, original, current, multiline}]
+  textFields: [],          // [{key, original, current}]
   textSaveTimer: null,
+  pendingAttachments: [],  // [{file, dataUrl?, name, kind, size}] before send
 };
 
 // ============== boot ==============
@@ -158,10 +159,13 @@ function renderMain() {
         <section class="chat-pane">
           <div class="chat-log" id="chat-log"></div>
           <div class="composer">
-            <div class="composer-shell">
+            <div class="composer-shell" id="composer-shell">
+              <div class="attachments" id="attachments"></div>
               <textarea id="composer-input" placeholder="..." rows="2"></textarea>
               <div class="actions">
-                <span class="hint">Cmd / Ctrl + Enter to send</span>
+                <button class="icon-btn" id="btn-attach" title="Attach file">📎</button>
+                <input type="file" id="file-input" multiple style="display:none" />
+                <span class="hint">Cmd / Ctrl + Enter · drag / paste files</span>
                 <button class="send-btn" id="btn-send" disabled>Send</button>
               </div>
             </div>
@@ -208,8 +212,91 @@ function renderMain() {
         sendMessage();
       }
     });
+    document.getElementById('btn-attach').onclick = () => document.getElementById('file-input').click();
+    document.getElementById('file-input').onchange = (e) => addAttachments([...e.target.files]);
+    wireDragAndPaste();
     document.getElementById('btn-reload').onclick = () => { reloadPreview(); refreshTextFields(); };
   }
+}
+
+// ============== composer attachments ==============
+function attachmentKind(file) {
+  const t = (file.type || '').toLowerCase();
+  if (t.startsWith('image/')) return 'image';
+  if (t.startsWith('video/')) return 'video';
+  if (t.startsWith('audio/')) return 'audio';
+  if (t === 'application/json' || t === 'text/csv' || /\.(csv|tsv|json)$/i.test(file.name)) return 'data';
+  if (t.startsWith('text/')) return 'text';
+  return 'reference-link';
+}
+function iconForKind(k) {
+  return { image: '🖼', video: '🎬', audio: '🎵', data: '📊', text: '📝' }[k] ?? '📎';
+}
+
+function addAttachments(files) {
+  for (const f of files) {
+    const kind = attachmentKind(f);
+    const att = { file: f, name: f.name, kind, size: f.size };
+    state.pendingAttachments.push(att);
+    if (kind === 'image') {
+      const r = new FileReader();
+      r.onload = (e) => { att.dataUrl = e.target.result; renderAttachments(); };
+      r.readAsDataURL(f);
+    }
+  }
+  renderAttachments();
+}
+
+function removeAttachment(i) {
+  state.pendingAttachments.splice(i, 1);
+  renderAttachments();
+}
+
+function renderAttachments() {
+  const wrap = document.getElementById('attachments');
+  if (!wrap) return;
+  wrap.innerHTML = state.pendingAttachments.map((a, i) => {
+    const thumb = a.dataUrl ? `<img src="${a.dataUrl}" alt="" />` : `<span class="ico">${iconForKind(a.kind)}</span>`;
+    return `<span class="att-chip">
+      ${thumb}
+      <span class="name" title="${esc(a.name)}">${esc(a.name)}</span>
+      <button data-i="${i}" title="Remove">×</button>
+    </span>`;
+  }).join('');
+  wrap.querySelectorAll('button[data-i]').forEach(btn => {
+    btn.onclick = () => removeAttachment(Number(btn.dataset.i));
+  });
+}
+
+function wireDragAndPaste() {
+  const shell = document.getElementById('composer-shell');
+  const ta = document.getElementById('composer-input');
+  if (!shell) return;
+  shell.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    shell.classList.add('dragging');
+  });
+  shell.addEventListener('dragleave', () => shell.classList.remove('dragging'));
+  shell.addEventListener('drop', (e) => {
+    e.preventDefault();
+    shell.classList.remove('dragging');
+    if (e.dataTransfer?.files?.length) addAttachments([...e.dataTransfer.files]);
+  });
+  ta.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [];
+    for (const it of items) {
+      if (it.kind === 'file') {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      addAttachments(files);
+    }
+  });
 }
 
 function renderComposer() {
@@ -318,12 +405,7 @@ async function refreshTextFields() {
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const text = el.textContent ?? '';
-    fields.push({
-      key,
-      original: text,
-      current: text,
-      multiline: text.length > 60 || text.includes('\n'),
-    });
+    fields.push({ key, original: text, current: text });
   }
   state.textFields = fields;
   renderTextFields();
@@ -344,28 +426,28 @@ function renderTextFields() {
     wrap.innerHTML = `<div class="text-empty">No editable text yet.<br>Send a chat to generate the first version of the HTML, then per-frame text fields appear here.</div>`;
     return;
   }
+  // Always render as textarea — agent decides text length, no hard cap.
   wrap.innerHTML = state.textFields.map((f, i) => {
     const labelKey = humanizeKey(f.key);
-    const charCount = (f.current || '').length;
-    const showCount = charCount > 0 ? `<span class="badge">${charCount} chars</span>` : '';
-    if (f.multiline) {
-      return `<div class="text-field">
-        <div class="key">${esc(labelKey)}<span class="badge">${esc(f.key)}</span>${showCount}</div>
-        <textarea data-i="${i}" rows="3">${esc(f.current)}</textarea>
-      </div>`;
-    }
     return `<div class="text-field">
-      <div class="key">${esc(labelKey)}<span class="badge">${esc(f.key)}</span>${showCount}</div>
-      <input type="text" data-i="${i}" value="${esc(f.current)}" />
+      <div class="key">${esc(labelKey)}<span class="badge">${esc(f.key)}</span></div>
+      <textarea data-i="${i}" rows="1" placeholder="(empty)">${esc(f.current)}</textarea>
     </div>`;
   }).join('');
-  wrap.querySelectorAll('[data-i]').forEach((el) => {
+  wrap.querySelectorAll('textarea[data-i]').forEach((el) => {
+    autoResize(el);
     el.addEventListener('input', (e) => {
       const i = Number(e.target.dataset.i);
       state.textFields[i].current = e.target.value;
+      autoResize(el);
       scheduleTextSave();
     });
   });
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight + 2, 320) + 'px';
 }
 
 function humanizeKey(key) {
@@ -424,12 +506,17 @@ async function sendMessage() {
   if (state.composing || !state.selected) return;
   const ta = document.getElementById('composer-input');
   const text = ta.value.trim();
-  if (!text) return;
+  const hasAttachments = state.pendingAttachments.length > 0;
+  if (!text && !hasAttachments) return;
   ta.value = '';
   state.composing = true;
   renderComposer();
 
-  state.messages.push({ role: 'user', content: text, ts: Date.now() });
+  // User message includes attachment summary
+  const attSummary = hasAttachments
+    ? `\n\n📎 ${state.pendingAttachments.length} attachment(s): ${state.pendingAttachments.map(a => a.name).join(', ')}`
+    : '';
+  state.messages.push({ role: 'user', content: text + attSummary, ts: Date.now() });
   state.messages.push({ role: 'thinking', content: 'agent thinking', ts: Date.now() });
   const thinkingIdx = state.messages.length - 1;
   renderChatLog();
@@ -437,11 +524,25 @@ async function sendMessage() {
   let assistantIdx = -1;
 
   try {
-    const res = await fetch(`/api/projects/${state.selected.id}/messages`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content: text }),
-    });
+    let res;
+    if (hasAttachments) {
+      const fd = new FormData();
+      fd.append('content', text);
+      for (const a of state.pendingAttachments) fd.append('file', a.file, a.name);
+      // Clear UI attachments before request so user sees them disappear
+      state.pendingAttachments = [];
+      renderAttachments();
+      res = await fetch(`/api/projects/${state.selected.id}/messages`, {
+        method: 'POST',
+        body: fd,
+      });
+    } else {
+      res = await fetch(`/api/projects/${state.selected.id}/messages`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+    }
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}));
       state.messages[thinkingIdx] = { role: 'system', content: '⚠️ ' + (err.error ?? 'agent failed'), ts: Date.now() };

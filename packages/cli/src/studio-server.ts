@@ -257,14 +257,44 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
       }
 
       // Messages: POST = send + stream agent reply via SSE
-      // v0.3: agent emits a complete HTML document; we capture it, write to project,
-      // and emit `preview_ready` so the frontend reloads the iframe.
+      // v0.5: accepts multipart (text + files) OR JSON. Files become real
+      // project assets via AssetStore; their paths are passed to the agent
+      // prompt as attachments.
       if (msgsMatch && msgsMatch[1] && m === 'POST') {
         const id = msgsMatch[1];
-        const body = await readBody(req);
-        const userText = (body.content as string) ?? '';
-        if (!userText) return json(res, 400, { error: 'content required' });
+        const ct = req.headers['content-type'] ?? '';
+        let userText = '';
+        const attachments: Attachment[] = [];
 
+        const project0 = await ctx.orchestrator.load(id);
+        if (ct.startsWith('multipart/form-data')) {
+          const parts = await receiveMultipart(req, ct);
+          for (const p of parts) {
+            if (p.kind === 'field' && p.name === 'content') {
+              userText = p.value;
+            } else if (p.kind === 'file') {
+              const updatedProject = await ctx.orchestrator.addFileAsset(id, p.tmpPath);
+              const newAsset = updatedProject.assets[updatedProject.assets.length - 1];
+              if (newAsset) {
+                attachments.push({
+                  path: newAsset.path ?? p.tmpPath,
+                  kind: newAsset.type as Attachment['kind'],
+                  filename: p.filename,
+                  size: newAsset.metadata.sizeBytes ?? 0,
+                });
+              }
+            }
+          }
+        } else {
+          const body = await readBody(req);
+          userText = (body.content as string) ?? '';
+        }
+
+        if (!userText && attachments.length === 0) {
+          return json(res, 400, { error: 'content or attachments required' });
+        }
+
+        // Re-fetch project after potential addFileAsset side-effects
         const project = await ctx.orchestrator.load(id);
         const tmpl = project.templateId ? ctx.templates.get(project.templateId) : null;
         if (!tmpl) {
@@ -277,18 +307,23 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           return json(res, 400, { error: `agent "${agentId}" not registered` });
         }
 
-        // Append user message to history
+        // Append user message to history (with attachment summary)
+        const attachmentSummary = attachments.length > 0
+          ? `\n\n📎 ${attachments.length} attachment(s): ${attachments.map((a) => a.filename).join(', ')}`
+          : '';
         const history = MESSAGES.get(id) ?? [];
-        history.push({ role: 'user', content: userText, ts: Date.now() });
+        history.push({
+          role: 'user',
+          content: userText + attachmentSummary,
+          ts: Date.now(),
+        });
         MESSAGES.set(id, history);
 
-        // Compose prompt: load template's example HTML so agent has the visual skeleton
+        // Compose prompt
         const exampleHtmlPath = join(tmpl.__dir!, tmpl.source_entry);
         const exampleHtml = existsSync(exampleHtmlPath)
           ? await readFile(exampleHtmlPath, 'utf8')
           : '';
-
-        // Read prior assistant HTML if present (for iterative refinement)
         const projectDir = await ctx.projects.ensureDir(id);
         const priorHtmlPath = join(projectDir, 'preview.html');
         const priorHtml = existsSync(priorHtmlPath)
@@ -301,6 +336,7 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           priorHtml,
           history,
           userText,
+          attachments,
         });
 
         // SSE response
@@ -326,30 +362,26 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
         });
         await handle.done;
 
-        // Try to extract a full HTML document from assistant output
+        // Extract HTML if present; otherwise leave preview alone (chat-only turn)
         const extracted = extractHtmlDocument(assistantText);
         if (extracted) {
           await ctx.orchestrator.writePreviewHtmlRaw(id, extracted);
           res.write(`data: ${JSON.stringify({ type: 'preview_ready', preview_url: `/preview/${id}` })}\n\n`);
-        } else {
-          res.write(
-            `data: ${JSON.stringify({
-              type: 'warning',
-              message: 'Agent did not produce a full <!doctype html>...</html> document. Preview unchanged.',
-            })}\n\n`,
-          );
         }
 
-        // Persist assistant message to history (text only — UI shows summary)
+        // Persist assistant message — strip the html block when present (UI sees summary line)
+        const persistText = extracted
+          ? assistantText.replace(/```html[\s\S]*?```/i, '✓ updated the HTML preview').trim() || '✓ updated the HTML preview'
+          : assistantText;
         history.push({
           role: 'assistant',
           agent: agentDef.id,
-          content: extracted
-            ? `Updated the HTML preview${assistantText.length > 0 ? '.' : '.'}`
-            : assistantText,
+          content: persistText,
           ts: Date.now(),
         });
         MESSAGES.set(id, history);
+        // discard project0 reference to keep TS happy
+        void project0;
         res.end();
         return;
       }
@@ -484,13 +516,18 @@ async function readBodyText(req: IncomingMessage): Promise<string> {
 }
 
 /**
- * Minimal multipart parser — only extracts the first file field.
- * v0.1 keeps it small; for production switch to formidable / busboy.
+ * Minimal multipart parser — returns ALL parts (fields + files).
+ * Files are written to a tmp path and the path is returned.
+ * For production switch to formidable / busboy.
  */
-async function receiveMultipartFile(
+type MultipartPart =
+  | { kind: 'field'; name: string; value: string }
+  | { kind: 'file'; name: string; filename: string; tmpPath: string };
+
+async function receiveMultipart(
   req: IncomingMessage,
   contentType: string,
-): Promise<{ filePath: string; filename: string }> {
+): Promise<MultipartPart[]> {
   const boundaryMatch = contentType.match(/boundary=(.+)/);
   if (!boundaryMatch) throw new Error('No multipart boundary');
   const boundary = `--${boundaryMatch[1]}`;
@@ -499,22 +536,40 @@ async function receiveMultipartFile(
   const buf = Buffer.concat(chunks);
   const text = buf.toString('binary');
   const parts = text.split(boundary).slice(1, -1);
+  const out: MultipartPart[] = [];
+  const fs = await import('node:fs/promises');
   for (const part of parts) {
     const headerEnd = part.indexOf('\r\n\r\n');
     if (headerEnd === -1) continue;
     const headers = part.slice(0, headerEnd);
-    const body = part.slice(headerEnd + 4, part.length - 2); // strip trailing \r\n
+    const bodyRaw = part.slice(headerEnd + 4, part.length - 2);
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    if (!nameMatch || !nameMatch[1]) continue;
+    const name = nameMatch[1];
     const fnMatch = headers.match(/filename="([^"]+)"/);
-    if (!fnMatch || !fnMatch[1]) continue;
-    const filename = fnMatch[1];
-    const tmpPath = join(tmpdir(), `hv-upload-${randomUUID().slice(0, 8)}-${filename}`);
-    await mkdir(dirname(tmpPath), { recursive: true });
-    const data = Buffer.from(body, 'binary');
-    const fs = await import('node:fs/promises');
-    await fs.writeFile(tmpPath, data);
-    return { filePath: tmpPath, filename };
+    if (fnMatch && fnMatch[1]) {
+      const filename = fnMatch[1];
+      const tmpPath = join(tmpdir(), `hv-upload-${randomUUID().slice(0, 8)}-${filename}`);
+      await mkdir(dirname(tmpPath), { recursive: true });
+      await fs.writeFile(tmpPath, Buffer.from(bodyRaw, 'binary'));
+      out.push({ kind: 'file', name, filename, tmpPath });
+    } else {
+      // Field — body is utf8 text
+      out.push({ kind: 'field', name, value: Buffer.from(bodyRaw, 'binary').toString('utf8') });
+    }
   }
-  throw new Error('No file field in multipart body');
+  return out;
+}
+
+// Backward-compat shim used by the older /api/projects/:id/assets endpoint
+async function receiveMultipartFile(
+  req: IncomingMessage,
+  contentType: string,
+): Promise<{ filePath: string; filename: string }> {
+  const parts = await receiveMultipart(req, contentType);
+  const file = parts.find((p): p is Extract<MultipartPart, { kind: 'file' }> => p.kind === 'file');
+  if (!file) throw new Error('No file field in multipart body');
+  return { filePath: file.tmpPath, filename: file.filename };
 }
 
 // Keep TS aware that copyFile / AssetStore are used somewhere (they're indirectly via orchestrator)
@@ -536,55 +591,110 @@ interface ChatMessage {
 
 const MESSAGES = new Map<string, ChatMessage[]>();
 
+// `Attachment` is declared above (at the buildHtmlGenerationPrompt section)
+
 interface BuildPromptArgs {
   tmpl: import('@html-video/core').TemplateMetadata;
   exampleHtml: string;
   priorHtml: string;
   history: ChatMessage[];
   userText: string;
+  attachments: Attachment[];
+}
+
+interface Attachment {
+  /** absolute path on disk */
+  path: string;
+  /** type the AssetStore detected */
+  kind: 'image' | 'video' | 'audio' | 'data' | 'text' | 'reference-link';
+  /** display name */
+  filename: string;
+  /** byte size */
+  size: number;
 }
 
 /**
- * v0.3 chat-to-HTML prompt.
- * Tells the agent to produce a single complete HTML document inside ```html ... ```
- * preserving the template's visual signature.
+ * v0.5 chat prompt — guidance-first, not write-HTML-immediately.
+ *
+ * The system prompt tells the agent to:
+ *   - On a vague first turn, ask 1–3 sharp questions instead of writing HTML
+ *   - When the request + context are concrete enough, generate the full HTML
+ *   - Use attachments as references / actual assets
+ *   - Never use a fixed 4-question script — judge per turn what's missing
+ *
+ * Whether the agent writes HTML this turn is up to the agent. The server
+ * extracts a fenced ```html block if present; if not, it's just a chat reply.
  */
 function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
-  const { tmpl, exampleHtml, priorHtml, history, userText } = args;
+  const { tmpl, exampleHtml, priorHtml, history, userText, attachments } = args;
 
-  // Use the prior HTML as the source of truth when iterating; only fall back
-  // to the original example.html on the first turn. This keeps the prompt
-  // bounded in size (~6 KB instead of ~24 KB) so claude --print returns fast.
   const baseHtml = priorHtml && priorHtml !== exampleHtml ? priorHtml : exampleHtml;
-  const recentUserTurns = history
-    .filter((m) => m.role === 'user')
-    .slice(-3, -1)
-    .map((m) => m.content);
+  const isFirstTurn = history.filter((m) => m.role === 'user').length <= 1;
 
   const parts: string[] = [];
-  parts.push(`Rewrite the HTML below to fulfil the user's request. Keep the visual style — colors, fonts, animations, layout — unchanged unless the user asks otherwise. Replace placeholder text and data with the user's actual content.`);
+
+  parts.push(`# Role`);
+  parts.push(
+    `You are a Hyperframes video creation collaborator. The user wants ONE self-contained HTML file that opens with animation and is ready to be recorded into an MP4.`,
+  );
   parts.push('');
-  parts.push(`Template: ${tmpl.name} (${tmpl.category})`);
-  parts.push(`Description: ${tmpl.description}`);
+
+  parts.push(`# Behaviour`);
+  parts.push(`- If the user's request is concrete enough to make a good first draft, generate the HTML directly (see Output rules below).`);
+  parts.push(`- If the request is too vague, ask 1–3 short, sharp questions to surface what's missing. Use your judgement: don't ask a fixed checklist of audience/platform/style/tone — pick whichever 1–3 things are blocking *this* particular project.`);
+  parts.push(`- When the user attaches files, use them: images / video links as visual style references, logos / photos as actual assets to embed, data files as content, text files as copy.`);
+  parts.push(`- When you have enough to draft, you may optionally summarise a one-paragraph creative brief and check in ("shall I draft now?"). Skip the brief if the user is clearly ready.`);
+  parts.push(`- Don't perform a fixed onboarding script. Be a thoughtful collaborator, not a form.`);
+  parts.push(`- Keep chat replies brief. The HTML is the artefact.`);
   parts.push('');
-  parts.push(`Mark every user-visible text node with \`data-hv-text="<short-key>"\` so a downstream editor can locate and edit each text. Use stable keys like \`brand_name\`, \`tagline\`, \`headline\`, \`item_1\`, \`cta\`. Existing data-hv-text keys must be preserved.`);
+
+  parts.push(`# Template currently selected`);
+  parts.push(`${tmpl.name} (${tmpl.category}) — ${tmpl.description}`);
+  parts.push(`The template's visual signature (colors, animation timing, layout) should be preserved unless the user explicitly asks for a deviation.`);
   parts.push('');
-  parts.push(`Source HTML to rewrite:`);
+
+  if (attachments.length > 0) {
+    parts.push(`# Attachments in this turn`);
+    for (const a of attachments) {
+      parts.push(`- [${a.kind}] ${a.filename} (${a.size} bytes) — ${a.path}`);
+    }
+    parts.push(`Use these as references or assets. Reference image paths in <img src="..."> as needed.`);
+    parts.push('');
+  }
+
+  parts.push(`# Source HTML (the current preview state)`);
   parts.push('```html');
   parts.push(baseHtml.slice(0, 6000));
   parts.push('```');
   parts.push('');
 
+  const recentUserTurns = history
+    .filter((m) => m.role === 'user')
+    .slice(-4, -1)
+    .map((m) => m.content);
   if (recentUserTurns.length > 0) {
-    parts.push(`Earlier user requests in this conversation (already applied to the source above):`);
-    for (const t of recentUserTurns) parts.push(`- ${t.slice(0, 200)}`);
+    parts.push(`# Earlier user messages in this conversation`);
+    for (const t of recentUserTurns) parts.push(`- ${t.slice(0, 240)}`);
     parts.push('');
   }
 
-  parts.push(`Latest user request:`);
+  parts.push(`# Latest user message`);
   parts.push(userText);
+  if (isFirstTurn) {
+    parts.push('');
+    parts.push(`(This is the first turn for this project. If the message is concrete enough, just draft. Otherwise ask 1–3 questions to surface what's missing.)`);
+  }
   parts.push('');
-  parts.push(`Reply with EXACTLY one complete HTML document inside a single \`\`\`html\`\`\` fenced code block. Start with \`<!doctype html>\` and end with \`</html>\`. No explanation outside the code block.`);
+
+  parts.push(`# Output rules (only when you decide to draft HTML)`);
+  parts.push(`- Reply with ONE complete HTML document inside a single \`\`\`html\`\`\` fenced code block.`);
+  parts.push(`- Start with \`<!doctype html>\` and end with \`</html>\`.`);
+  parts.push(`- Inline all CSS and JS (no external imports beyond CDN scripts already in the source).`);
+  parts.push(`- Mark every user-visible text node with \`data-hv-text="<short-key>"\` (e.g. \`brand_name\`, \`tagline\`, \`headline\`, \`item_1\`, \`cta\`). Preserve any existing keys across rewrites.`);
+  parts.push(`- No explanation outside the code block when you draft.`);
+  parts.push('');
+  parts.push(`# When you don't draft this turn`);
+  parts.push(`- Reply in plain conversational text. No code block. Be concise.`);
 
   return parts.join('\n');
 }
