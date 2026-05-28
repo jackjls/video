@@ -41,20 +41,19 @@ html-video/
 
 代码骨架（adapter spec、CLI、studio 等）等架构定型后另起 `core/` `adapters/` `cli/` `studio/` 等目录。
 
-## 当前状态（2026-05-27 v0.1 skeleton）
+## 当前状态（2026-05-28 v0.8 content-graph + multi-frame）
 
-- ✅ 项目目录骨架（notes/ research/ assets/ packages/ templates/）
-- ✅ 4 份 RFC（engine adapter / template metadata / agent skill / storyboard workflow）+ foundation decisions log
-- ✅ pnpm workspace monorepo + tsconfig + biome
-- ✅ `@html-video/core`：Asset/Bundle/Storyboard/Scene 类型 + EngineRegistry/TemplateRegistry/BundleStore/StoryboardStore + StoryboardOrchestrator + AssetStore
-- ✅ `@html-video/adapter-hyperframes`：capabilities + validate(真实) + render/renderToHtml(stub)
-- ✅ `@html-video/cli`：doctor / list-engines / search-templates / inspect-template / assets upload / storyboard generate/edit/preview/render + 内置 planner（v0.1 启发式）+ HTTP preview server
-- ✅ `@html-video/storyboard-ui`：纯静态 HTML/JS（timeline + scene grid + inline edit + iframe preview）
-- ✅ 5 reference templates：intro-logo-reveal / data-bar-chart / image-pan-ken-burns / text-card-quote / outro-cta（每个含 metadata YAML + HF source）
-- ✅ End-to-end smoke test（`pnpm --filter @html-video/cli smoke`）：bootstrap → bundle → planner emits 4 scenes → storyboard generate → preview HTMLs render → edit → approve → render stub MP4
-- ⏳ 还没建 GitHub repo（等 Joey 拍板时机再推到 nexu-io org）
-- ⏳ HF upstream 真实 render（v0.2）：替换 adapter-hyperframes 里的 stub，接 hyperframes npm 包做帧渲染
-- ⏳ ffmpeg concat（v0.2）：把 scene MP4 真正拼成最终视频
+v0.7 之前的进展见 git log。本节记 v0.8 落地的事 + 还没接的事。
+
+- ✅ `@html-video/content-graph` 新 package：ContentGraph schema（entity/data/text 节点 + sequence/dependency/contrast 边）+ `validate` + `topoSort`（dependency 硬约束 / sequence 软排 / contrast 不参与排序）+ `totalDurationSec`
+- ✅ core：`Project` 加 `contentGraphPath` + `frames[]`；`orchestrator` 加 `writeContentGraph` / `readContentGraph` / `writeFrameHtml`；`exportMp4` 多帧路径走 ffmpeg concat（缺 ffmpeg 时报友好错）
+- ✅ studio agent：prompt 同时教单帧 fast path + 多帧（\`\`\`json#content-graph + \`\`\`html#&lt;nodeId&gt; 双块协议）；server 解析后自动调 writeContentGraph + writeFrameHtml；无 graph 时回落 v0.7
+- ✅ studio UI：frames-strip 切帧 + graph viewer modal（JSON 只读 + 下载）；单帧 fast path 时整条隐藏
+- ✅ 已 push `nexu-io/html-video` main（commit `149ace9`）
+- ⏳ HF upstream 真实 render（v0.9?）：adapter-hyperframes 仍是 stub，单帧/多帧 export MP4 都是空文件
+- ⏳ ffmpeg concat 真实跑通：依赖 ffmpeg 装好；adapter render 出真 MP4 之后才 end-to-end 有用
+- ⏳ RFC-06 正式文档稿（落 `research/2026-05-28-spec-06-content-graph.md`）；目前规范散在 content-graph package README + smoke + agent prompt 三处
+- ⏳ studio 的 graph viewer 现在只读，未来可加可视化编辑（拖节点 / 加边）
 
 ## 跑起来
 
