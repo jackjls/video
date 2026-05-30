@@ -754,6 +754,32 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
         // Fallback: also try project assets/
         const projAssets = join(dirname(baseDir), 'assets', basename(sub));
         if (existsSync(projAssets)) return serveFile(projAssets, res);
+        // Fallback 2 (multi-composition templates): hyperframes templates ship
+        // with sibling files like compositions/intro.html that the entry
+        // index.html references via data-composition-src. Project dir only
+        // holds the rewritten preview.html — sibling files live in the
+        // template's own dir. Resolve relative to that, but only when the
+        // requested path is below the project's selected template (so a
+        // project can't read a different template's files).
+        if (project.templateId) {
+          try {
+            const tmpl = ctx.templates.get(project.templateId);
+            if (tmpl?.__dir && sub.length > 1) {
+              const tmplFile = join(tmpl.__dir, sub.replace(/^\//, ''));
+              const tmplResolved = resolve(tmplFile);
+              const tmplRoot = resolve(tmpl.__dir);
+              if (
+                tmplResolved.startsWith(tmplRoot + '/') &&
+                existsSync(tmplResolved) &&
+                statSync(tmplResolved).isFile()
+              ) {
+                return serveFile(tmplResolved, res);
+              }
+            }
+          } catch {
+            /* template lookup failed → just 404 */
+          }
+        }
         res.writeHead(404);
         return res.end('Not found');
       }
