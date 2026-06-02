@@ -387,8 +387,76 @@ function renderToolbar() {
   } else {
     exportBtn.textContent = t('toolbar.export_mp4');
   }
+  renderAgentPill();
+
   // Re-wire on every render so handlers always match the current DOM.
   wireToolbar();
+}
+
+/** Fill the top-bar Agent pill: current agent's logo + name + connection dot. */
+function renderAgentPill() {
+  const pill = document.getElementById('btn-agent');
+  if (!pill) return;
+  const p = state.selected;
+  pill.disabled = !p;
+  const dot = document.getElementById('agent-dot');
+  const logo = document.getElementById('agent-pill-logo');
+  const label = document.getElementById('agent-pill-label');
+  if (!p) {
+    label.textContent = t('toolbar.agent_none');
+    logo.innerHTML = '';
+    dot.className = 'agent-dot';
+    return;
+  }
+  const currentId = p.agentId ?? (state.agents.find((a) => a.available)?.id ?? 'anthropic-api');
+  const a = state.agents.find((x) => x.id === currentId);
+  const available = a?.available ?? false;
+  label.textContent = a?.name ?? currentId;
+  logo.innerHTML = AGENT_LOGOS[currentId] ? `<img src="${esc(AGENT_LOGOS[currentId])}" alt="" />` : '';
+  dot.className = 'agent-dot ' + (available ? 'ok' : 'missing');
+  pill.title = available ? t('toolbar.agent_ready') : t('settings.agent.unavailable');
+}
+
+/** Open/refresh the top-bar agent dropdown. */
+function renderAgentMenu() {
+  const menu = document.getElementById('agent-menu');
+  if (!menu || !state.selected) return;
+  const currentId = state.selected.agentId ?? (state.agents.find((a) => a.available)?.id ?? 'anthropic-api');
+  menu.innerHTML = state.agents.map((a) => {
+    const cur = a.id === currentId ? ' current' : '';
+    const logo = AGENT_LOGOS[a.id] ? `<img src="${esc(AGENT_LOGOS[a.id])}" alt="" />` : '';
+    const tag = a.available ? '' : `<span class="mi-tag">${esc(t('settings.agent.unavailable'))}</span>`;
+    return `<button class="agent-menu-item${cur}" data-agent-id="${esc(a.id)}" ${a.available ? '' : 'disabled'}>
+      <span class="mi-dot ${a.available ? 'ok' : ''}"></span>
+      <span class="mi-logo">${logo}</span>
+      <span class="mi-name">${esc(a.name)}</span>${tag}
+    </button>`;
+  }).join('');
+  menu.querySelectorAll('.agent-menu-item').forEach((item) => {
+    item.onclick = async () => {
+      const aid = item.dataset.agentId;
+      if (!state.selected || item.disabled) return;
+      try {
+        await API.setAgent(state.selected.id, aid);
+        state.selected = (await API.getProject(state.selected.id)).project;
+        toast(`✓ ${aid}`, 'success');
+      } catch (e) {
+        toast(`${e?.message ?? e}`, 'error');
+      }
+      closeAgentMenu();
+      renderToolbar();
+    };
+  });
+}
+
+function closeAgentMenu() {
+  const menu = document.getElementById('agent-menu');
+  if (menu) menu.hidden = true;
+  document.removeEventListener('click', _agentMenuOutside, true);
+}
+function _agentMenuOutside(e) {
+  const sw = document.getElementById('agent-switch');
+  if (sw && !sw.contains(e.target)) closeAgentMenu();
 }
 
 // Wire toolbar elements — re-bind on every renderToolbar() so any DOM
@@ -408,8 +476,25 @@ function wireToolbar() {
       openGallery();
     };
   }
-  // Agent selection moved to Settings modal (Agent panel). No more inline
-  // agent dropdown in the toolbar.
+  // Top-bar agent switcher: pill toggles a dropdown to view status + switch.
+  const agentBtn = document.getElementById('btn-agent');
+  if (agentBtn) {
+    agentBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!state.selected) { toast(t('composer.placeholder.no_project'), 'error'); return; }
+      const menu = document.getElementById('agent-menu');
+      if (!menu) return;
+      if (menu.hidden) {
+        renderAgentMenu();
+        menu.hidden = false;
+        // close on outside click (capture so it fires before re-open)
+        setTimeout(() => document.addEventListener('click', _agentMenuOutside, true), 0);
+      } else {
+        closeAgentMenu();
+      }
+    };
+  }
   const exportBtn = document.getElementById('btn-export');
   if (exportBtn) {
     exportBtn.onclick = () => {

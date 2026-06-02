@@ -45,6 +45,38 @@
   .toolbar .pick-btn:disabled { opacity: .4; cursor: not-allowed; }
   .toolbar .pick-btn .arrow { color: var(--text-muted); }
   .toolbar .pick-btn.empty .label { color: var(--text-muted); }
+  /* Agent switcher pill (top bar) */
+  .agent-switch { position: relative; }
+  .toolbar .pick-btn.agent-pill { min-width: 0; }
+  .agent-pill .agent-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+    background: var(--text-faint); }
+  .agent-pill .agent-dot.ok { background: var(--green); }
+  .agent-pill .agent-dot.missing { background: var(--text-faint); }
+  .agent-pill .agent-pill-logo { display: inline-flex; }
+  .agent-pill .agent-pill-logo img { width: 16px; height: 16px; object-fit: contain;
+    display: block; }
+  .agent-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+    min-width: 240px; background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-md); padding: 6px;
+    display: flex; flex-direction: column; gap: 2px; }
+  .agent-menu[hidden] { display: none; }
+  .agent-menu .agent-menu-item { display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; border: 0;
+    background: transparent; color: var(--text); font: inherit; font-size: 12.5px;
+    text-align: left; width: 100%; }
+  .agent-menu .agent-menu-item:hover:not(:disabled) { background: var(--bg-subtle); }
+  .agent-menu .agent-menu-item:disabled { opacity: .5; cursor: not-allowed; }
+  .agent-menu .agent-menu-item.current { background: var(--accent-soft); }
+  .agent-menu .agent-menu-item .mi-dot { width: 7px; height: 7px; border-radius: 50%;
+    flex: 0 0 auto; background: var(--text-faint); }
+  .agent-menu .agent-menu-item .mi-dot.ok { background: var(--green); }
+  .agent-menu .agent-menu-item .mi-logo img { width: 16px; height: 16px;
+    object-fit: contain; display: block; }
+  .agent-menu .agent-menu-item .mi-logo { width: 16px; display: inline-flex; flex: 0 0 auto; }
+  .agent-menu .agent-menu-item .mi-name { flex: 1; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .agent-menu .agent-menu-item .mi-tag { font-size: 10px; color: var(--text-muted);
+    font-family: var(--font-mono); }
   .toolbar select { background: var(--bg); border: 1px solid var(--border);
     color: var(--text); padding: 6px 10px; border-radius: var(--radius-sm);
     font-size: 12.5px; cursor: pointer; min-width: 160px; }
@@ -890,6 +922,16 @@
       <button class="pick-btn empty" id="btn-pick-template" disabled>
         <span class="label">— choose —</span><span class="arrow">▾</span>
       </button>
+    </div>
+
+    <div class="toolbar-section agent-switch" id="agent-switch">
+      <span class="sec-label" data-i18n="toolbar.agent">Agent</span>
+      <button class="pick-btn agent-pill" id="btn-agent">
+        <span class="agent-dot" id="agent-dot"></span>
+        <span class="agent-pill-logo" id="agent-pill-logo"></span>
+        <span class="label" id="agent-pill-label">—</span><span class="arrow">▾</span>
+      </button>
+      <div class="agent-menu" id="agent-menu" hidden></div>
     </div>
 
     <div class="grow"></div>
