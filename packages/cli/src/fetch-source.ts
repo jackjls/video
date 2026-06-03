@@ -109,16 +109,42 @@ async function fetchArticle(url: string, signal?: AbortSignal): Promise<FetchedS
   return { url, title, markdown, kind: 'article', truncated };
 }
 
+/** Extract the inner HTML of the first element matching `openTagRe`, scanning
+ *  forward and balancing nested `<tag>`/`</tag>` so we capture the WHOLE
+ *  container — not just up to the first inner close tag. A naive
+ *  `(.*?)</tag>` regex collapses on deeply-nested markup (e.g. WeChat's
+ *  #js_content wraps hundreds of nested <div>/<section>), which is why the
+ *  old single-regex approach returned an almost-empty body. */
+function extractBalanced(html: string, tag: string, openTagRe: RegExp): string | null {
+  const m = openTagRe.exec(html);
+  if (!m) return null;
+  const start = m.index + m[0].length;
+  const tagRe = new RegExp(`<(/)?${tag}\\b[^>]*>`, 'gi');
+  tagRe.lastIndex = start;
+  let depth = 1;
+  let t: RegExpExecArray | null;
+  while ((t = tagRe.exec(html))) {
+    if (t[1]) {
+      depth--;
+      if (depth === 0) return html.slice(start, t.index);
+    } else if (!/\/>$/.test(t[0])) {
+      depth++;
+    }
+  }
+  return html.slice(start); // unbalanced — take the rest
+}
+
 /** Prefer the article's main content container when we can spot one
  *  (WeChat's #js_content, <article>, <main>), else the whole document. */
 function extractMainHtml(html: string): string {
-  // WeChat official-account articles are server-rendered into #js_content.
-  const wx = html.match(/<div[^>]*id=["']js_content["'][^>]*>([\s\S]*?)<\/div>\s*(?:<script|<\/div>)/i);
-  if (wx && wx[1] && wx[1].length > 200) return wx[1];
-  const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-  if (article && article[1] && article[1].length > 200) return article[1];
-  const main = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  if (main && main[1] && main[1].length > 200) return main[1];
+  // WeChat official-account articles are server-rendered into #js_content
+  // (class attribute precedes id, and the open tag spans newlines).
+  const wx = extractBalanced(html, 'div', /<div[^>]*\bid=["']js_content["'][^>]*>/i);
+  if (wx && wx.length > 200) return wx;
+  const article = extractBalanced(html, 'article', /<article[^>]*>/i);
+  if (article && article.length > 200) return article;
+  const main = extractBalanced(html, 'main', /<main[^>]*>/i);
+  if (main && main.length > 200) return main;
   // Fall back to <body> so we don't carry <head> noise.
   const bodyM = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   return bodyM && bodyM[1] ? bodyM[1] : html;
