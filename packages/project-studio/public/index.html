@@ -755,8 +755,11 @@
   .st-voice-select { font-size: 11px; padding: 3px 8px; border-radius: var(--radius-sm);
     background: var(--bg); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
   .st-voice-select:focus { outline: none; border-color: var(--accent); }
-  /* narration field header with inline draft button */
+  /* narration field header with inline draft buttons */
   .st-field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .st-draft-group { display: inline-flex; gap: 6px; }
+  .st-narration-which { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--accent); margin: 2px 0; min-height: 12px; }
   .st-draft { font-size: 11px; padding: 3px 10px; border-radius: var(--radius-sm); cursor: pointer;
     background: var(--bg); border: 1px solid var(--accent); color: var(--accent); transition: all .12s; }
   .st-draft:hover:not(:disabled) { background: var(--accent); color: var(--accent-fg); }

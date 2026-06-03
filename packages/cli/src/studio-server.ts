@@ -350,7 +350,7 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
         const projectId = genAudioMatch[1];
         const body = (await readBody(req)) as {
           music?: { prompt?: string; instrumental?: boolean; volumeDb?: number };
-          narration?: { text?: string; voiceId?: string; volumeDb?: number; languageBoost?: string };
+          narration?: { text?: string; voiceId?: string; volumeDb?: number; languageBoost?: string; byFrame?: Record<string, string> };
           fadeInSec?: number;
           fadeOutSec?: number;
         };
@@ -418,6 +418,7 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
             );
             soundtrack.narrationAssetId = asset.id;
             soundtrack.narrationText = body.narration!.text!.trim();
+            if (body.narration!.byFrame) soundtrack.narrationByFrame = body.narration!.byFrame;
             if (body.narration!.volumeDb !== undefined) soundtrack.narrationVolumeDb = body.narration!.volumeDb;
             sse({ type: 'audio_progress', stage: 'narration', message: nar.providerNote, asset_id: asset.id });
           }
@@ -448,7 +449,9 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
       if (draftNarrMatch && draftNarrMatch[1] && m === 'POST') {
         const projectId = draftNarrMatch[1];
         try {
-          const body = (await readBody(req)) as { agentId?: string };
+          // body.frameId set → draft ONLY that frame (single-frame regenerate).
+          // unset → draft every frame (global). Either way returns a per-frame map.
+          const body = (await readBody(req)) as { agentId?: string; frameId?: string };
           const graph = await ctx.orchestrator.readContentGraph(projectId);
           if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length === 0) {
             return json(res, 400, { error: 'No frames yet — generate the video first.' });
@@ -460,33 +463,52 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           // Only TextNode carries copy; fall back to label/id for entity/data.
           const nodeText = (n: typeof graph.nodes[number]): string =>
             (n.kind === 'text' ? n.text : undefined) ?? n.label ?? n.id;
-          const frameLines = graph.nodes
-            .map((n, i) => `${i + 1}. ${nodeText(n).replace(/\n/g, ' ').slice(0, 200)}`)
-            .join('\n');
-          const prompt = [
-            `Write a spoken NARRATION script for this ${graph.nodes.length}-frame video — ONE line per frame, IN FRAME ORDER.`,
-            ``,
-            `Frames (in order):`,
-            frameLines,
-            ``,
-            graph.synopsis ? `Synopsis: ${graph.synopsis}` : '',
-            ``,
-            `Rules:`,
-            `- Output EXACTLY ${graph.nodes.length} lines, one per frame, in the SAME order as above. Line 1 narrates frame 1, line 2 narrates frame 2, and so on.`,
-            `- Each line is ONE short spoken sentence about THAT specific frame's content — distinct per frame, not a generic restatement.`,
-            `- The lines should still flow as a continuous voiceover when read top to bottom.`,
-            `- Write in the SAME LANGUAGE as the frame text above (Chinese frames → Chinese; English → English).`,
-            `- Plain text only: one sentence per line, no numbering, no bullets, no blank lines, no markdown, no quotes.`,
-          ].filter((l) => l !== undefined).join('\n');
-          const raw = (await callAgentSimple(agentDef, prompt, projectDir)).trim();
-          // Normalize: drop any leading "1." / "- " the model may have added,
-          // collapse blank lines, keep at most one line per frame.
-          const lines = raw
-            .split('\n')
-            .map((l) => l.replace(/^\s*(?:\d+[.)、]|[-*•])\s*/, '').trim())
-            .filter((l) => l.length > 0);
-          const text = (lines.length ? lines : [raw]).join('\n');
-          return json(res, 200, { narration: text });
+          const allFrames = graph.nodes.map((n, i) => ({ id: n.id, idx: i, text: nodeText(n).replace(/\n/g, ' ').slice(0, 240) }));
+          const frameLines = allFrames.map((f) => `${f.idx + 1}. ${f.text}`).join('\n');
+
+          const narrationByFrame: Record<string, string> = {};
+
+          if (body.frameId) {
+            // ---- single frame: narrate just this one, with the rest as context ----
+            const target = allFrames.find((f) => f.id === body.frameId);
+            if (!target) return json(res, 400, { error: `frame "${body.frameId}" not in content-graph` });
+            const prompt = [
+              `This is a ${allFrames.length}-frame video. Write the spoken NARRATION for FRAME ${target.idx + 1} ONLY.`,
+              ``,
+              `All frames (for context):`,
+              frameLines,
+              ``,
+              graph.synopsis ? `Synopsis: ${graph.synopsis}` : '',
+              ``,
+              `Write ONE short spoken sentence narrating frame ${target.idx + 1} ("${target.text}") specifically — distinct, not generic.`,
+              `Same language as the frame text. Plain text only: just the sentence, no numbering, quotes, or markdown.`,
+            ].filter((l) => l !== undefined).join('\n');
+            const raw = (await callAgentSimple(agentDef, prompt, projectDir)).trim();
+            const line = raw.split('\n').map((l) => l.replace(/^\s*(?:\d+[.)、]|[-*•])\s*/, '').trim()).find((l) => l.length > 0) ?? raw;
+            narrationByFrame[target.id] = line;
+          } else {
+            // ---- global: one line per frame, in order ----
+            const prompt = [
+              `Write a spoken NARRATION script for this ${allFrames.length}-frame video — ONE line per frame, IN FRAME ORDER.`,
+              ``,
+              `Frames (in order):`,
+              frameLines,
+              ``,
+              graph.synopsis ? `Synopsis: ${graph.synopsis}` : '',
+              ``,
+              `Rules:`,
+              `- Output EXACTLY ${allFrames.length} lines, one per frame, in the SAME order. Line 1 narrates frame 1, etc.`,
+              `- Each line is ONE short spoken sentence about THAT specific frame's content — distinct per frame, not a generic restatement.`,
+              `- The lines should still flow as a continuous voiceover read top to bottom.`,
+              `- Same language as the frame text. Plain text only: one sentence per line, no numbering, bullets, blank lines, or markdown.`,
+            ].filter((l) => l !== undefined).join('\n');
+            const raw = (await callAgentSimple(agentDef, prompt, projectDir)).trim();
+            const lines = raw.split('\n').map((l) => l.replace(/^\s*(?:\d+[.)、]|[-*•])\s*/, '').trim()).filter((l) => l.length > 0);
+            // Map lines onto frames positionally; if the model under/over-produced,
+            // pair as far as they line up and leave the rest blank.
+            allFrames.forEach((f, i) => { if (lines[i]) narrationByFrame[f.id] = lines[i]!; });
+          }
+          return json(res, 200, { narrationByFrame });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           process.stderr.write(`[studio:draft-narration] proj=${projectId} failed: ${msg}\n`);

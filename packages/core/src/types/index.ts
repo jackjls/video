@@ -303,8 +303,11 @@ export interface ProjectSoundtrack {
   narrationVolumeDb?: number;
   /** Last music style prompt used — kept so the UI can show / re-run it */
   musicPrompt?: string;
-  /** Last narration text used */
+  /** Last narration text used (the stitched full script) */
   narrationText?: string;
+  /** Per-frame narration: { [graphNodeId]: line }. The UI edits/shows narration
+   *  per selected frame; narrationText is these stitched in frame order. */
+  narrationByFrame?: Record<string, string>;
   /** Optional music fade-in seconds at the start of the video */
   fadeInSec?: number;
   /** Optional music fade-out seconds at the end of the video */

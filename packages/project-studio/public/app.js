@@ -594,8 +594,12 @@ function renderMain() {
               </label>
               <label class="soundtrack-field">
                 <span class="st-field-head">${t('soundtrack.narration_label')}
-                  <button type="button" class="st-draft" id="btn-st-draft-narration">${t('soundtrack.draft_narration')}</button>
+                  <span class="st-draft-group">
+                    <button type="button" class="st-draft" id="btn-st-draft-frame">${t('soundtrack.draft_frame')}</button>
+                    <button type="button" class="st-draft" id="btn-st-draft-all">${t('soundtrack.draft_all')}</button>
+                  </span>
                 </span>
+                <span class="st-narration-which" id="st-narration-which"></span>
                 <textarea id="st-narration-text" rows="2" placeholder="${t('soundtrack.narration_placeholder')}"></textarea>
                 <div class="st-voice-row">
                   <span class="st-voice-label">${t('soundtrack.voice_label')}</span>
@@ -689,7 +693,9 @@ function wireSoundtrackPanel() {
   const clearBtn = document.getElementById('btn-st-clear');
   const statusEl = document.getElementById('st-status');
   const previewEl = document.getElementById('st-preview');
-  const draftBtn = document.getElementById('btn-st-draft-narration');
+  const draftFrameBtn = document.getElementById('btn-st-draft-frame');
+  const draftAllBtn = document.getElementById('btn-st-draft-all');
+  const whichEl = document.getElementById('st-narration-which');
 
   // Music style presets: click fills the prompt textarea (editable after).
   document.querySelectorAll('#st-music-presets .st-preset').forEach((btn) => {
@@ -700,42 +706,75 @@ function wireSoundtrackPanel() {
     };
   });
 
-  // Draft a narration script from the generated frames (same language as them).
-  if (draftBtn) {
-    const hasFrames = (state.selected?.frames?.length ?? 0) > 0;
-    draftBtn.disabled = !hasFrames;
-    draftBtn.title = hasFrames ? '' : t('soundtrack.draft_need_frames');
-    draftBtn.onclick = async () => {
-      if (!state.selected) return;
-      const label = draftBtn.textContent;
-      draftBtn.disabled = true;
-      draftBtn.textContent = t('soundtrack.drafting');
-      try {
-        const res = await fetch(`/api/projects/${state.selected.id}/draft-narration`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ agentId: state.selected.agentId ?? (state.agents.find((a) => a.available)?.id ?? 'anthropic-api') }),
-        });
-        const data = await res.json();
-        if (res.ok && data.narration) {
-          narrationText.value = data.narration;
-        } else {
-          statusEl.textContent = t('soundtrack.draft_failed', { message: data.error || `HTTP ${res.status}` });
-        }
-      } catch (e) {
-        statusEl.textContent = t('soundtrack.draft_failed', { message: (e?.message ?? e) });
-      } finally {
-        draftBtn.textContent = label;
-        draftBtn.disabled = (state.selected?.frames?.length ?? 0) === 0;
-      }
-    };
+  // ---- Per-frame narration model ----------------------------------------
+  // narrationByFrame: { [graphNodeId]: text }. The textarea always shows the
+  // line for the CURRENTLY SELECTED frame (state.activeFrameId); editing it
+  // writes back to that frame. Switching frames in the strip swaps the text.
+  const sortedFrames = [...(state.selected?.frames ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const hasFrames = sortedFrames.length > 0;
+  // Seed from saved soundtrack; migrate a legacy single narrationText onto frame 1.
+  state._narrationByFrame = { ...(state.selected?.soundtrack?.narrationByFrame ?? {}) };
+  if (!Object.keys(state._narrationByFrame).length && state.selected?.soundtrack?.narrationText && sortedFrames[0]) {
+    state._narrationByFrame[sortedFrames[0].graphNodeId] = state.selected.soundtrack.narrationText;
   }
+  const frameLabel = (fid) => {
+    const i = sortedFrames.findIndex((f) => f.graphNodeId === fid);
+    return i >= 0 ? `${t('soundtrack.frame_word')} ${i + 1}/${sortedFrames.length}` : '';
+  };
+  const currentFrameId = () => state.activeFrameId ?? sortedFrames[0]?.graphNodeId ?? null;
+  const syncNarrationField = () => {
+    const fid = currentFrameId();
+    if (whichEl) whichEl.textContent = hasFrames ? frameLabel(fid) : '';
+    narrationText.value = (fid && state._narrationByFrame[fid]) || '';
+    const dis = !hasFrames || !fid;
+    if (draftFrameBtn) { draftFrameBtn.disabled = dis; draftFrameBtn.title = dis ? t('soundtrack.draft_need_frames') : ''; }
+    if (draftAllBtn) { draftAllBtn.disabled = !hasFrames; draftAllBtn.title = hasFrames ? '' : t('soundtrack.draft_need_frames'); }
+  };
+  // Persist edits back to the active frame as the user types.
+  narrationText.oninput = () => {
+    const fid = currentFrameId();
+    if (fid) state._narrationByFrame[fid] = narrationText.value;
+  };
+  // Re-sync whenever the selected frame changes (frames strip click re-renders
+  // main, which re-wires this panel — so reading activeFrameId here is enough).
+  syncNarrationField();
 
-  // Restore previously generated soundtrack (prompt/text + audio previews).
+  async function draftNarration(frameId /* null = all */) {
+    if (!state.selected) return;
+    const btn = frameId ? draftFrameBtn : draftAllBtn;
+    const label = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = t('soundtrack.drafting'); }
+    try {
+      const res = await fetch(`/api/projects/${state.selected.id}/draft-narration`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          agentId: state.selected.agentId ?? (state.agents.find((a) => a.available)?.id ?? 'anthropic-api'),
+          ...(frameId && { frameId }),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.narrationByFrame) {
+        // Merge (single-frame draft only returns that frame; global returns all).
+        Object.assign(state._narrationByFrame, data.narrationByFrame);
+        syncNarrationField();
+      } else {
+        statusEl.textContent = t('soundtrack.draft_failed', { message: data.error || `HTTP ${res.status}` });
+      }
+    } catch (e) {
+      statusEl.textContent = t('soundtrack.draft_failed', { message: (e?.message ?? e) });
+    } finally {
+      if (btn) { btn.textContent = label; }
+      syncNarrationField();
+    }
+  }
+  if (draftFrameBtn) draftFrameBtn.onclick = () => draftNarration(currentFrameId());
+  if (draftAllBtn) draftAllBtn.onclick = () => draftNarration(null);
+
+  // Restore previously generated soundtrack (music prompt + audio previews).
   const st = state.selected?.soundtrack;
   if (st) {
     if (st.musicPrompt) musicPrompt.value = st.musicPrompt;
-    if (st.narrationText) narrationText.value = st.narrationText;
     if (typeof st.musicVolumeDb === 'number') musicVol.value = String(st.musicVolumeDb);
     if (typeof st.narrationVolumeDb === 'number') narrationVol.value = String(st.narrationVolumeDb);
     renderSoundtrackPreview(st);
@@ -758,7 +797,14 @@ function wireSoundtrackPanel() {
   genBtn.onclick = async () => {
     if (!state.selected) return;
     const mp = musicPrompt.value.trim();
-    const nt = narrationText.value.trim();
+    // Stitch all frames' narration in frame order into one continuous script
+    // (the audio is one track; UI is per-frame). Falls back gracefully if a
+    // frame has no line.
+    const stitched = sortedFrames
+      .map((f) => (state._narrationByFrame[f.graphNodeId] || '').trim())
+      .filter((s) => s.length > 0)
+      .join('\n');
+    const nt = stitched || narrationText.value.trim();
     if (!mp && !nt) { statusEl.textContent = t('soundtrack.empty'); return; }
 
     genBtn.disabled = true;
@@ -769,7 +815,7 @@ function wireSoundtrackPanel() {
     const voiceSel = document.getElementById('st-narration-voice');
     const payload = {};
     if (mp) payload.music = { prompt: mp, instrumental: true, volumeDb: Number(musicVol.value) };
-    if (nt) payload.narration = { text: nt, volumeDb: Number(narrationVol.value), ...(voiceSel?.value && { voiceId: voiceSel.value }) };
+    if (nt) payload.narration = { text: nt, volumeDb: Number(narrationVol.value), byFrame: state._narrationByFrame, ...(voiceSel?.value && { voiceId: voiceSel.value }) };
 
     let res;
     try {
