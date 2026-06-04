@@ -2311,6 +2311,10 @@ async function sendMessage() {
             await refreshTextFields();
             renderToolbar();
             renderFooter();
+            // Frames just changed — re-wire the soundtrack panel so its
+            // narration draft / fit buttons re-evaluate hasFrames (they were
+            // disabled while frames[] was still empty at panel-render time).
+            if (typeof wireSoundtrackPanel === 'function') wireSoundtrackPanel();
           } else if (ev.type === 'warning') {
             if (assistantIdx === -1) {
               state.messages[thinkingIdx] = { role: 'assistant', agent: state.selected.agentId ?? 'claude', content: '', ts: Date.now() };
