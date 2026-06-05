@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07101d"/>
+      <stop offset="0.58" stop-color="#05080f"/>
+      <stop offset="1" stop-color="#03050a"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="18%" cy="0%" r="70%">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity=".24"/>
+      <stop offset=".72" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="105%" cy="105%" r="70%">
+      <stop offset="0" stop-color="#13d6c4" stop-opacity=".16"/>
+      <stop offset=".68" stop-color="#13d6c4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+  <rect width="1080" height="1350" fill="url(#g1)"/>
+  <rect width="1080" height="1350" fill="url(#g2)"/>
+  <g opacity=".22" stroke="#78a0dc" stroke-width="1">
+    <path d="M0 72h1080M0 144h1080M0 216h1080M0 288h1080M0 360h1080M0 432h1080M0 504h1080M0 576h1080M0 648h1080M0 720h1080M0 792h1080M0 864h1080M0 936h1080M0 1008h1080M0 1080h1080M0 1152h1080M0 1224h1080M0 1296h1080"/>
+    <path d="M72 0v1350M144 0v1350M216 0v1350M288 0v1350M360 0v1350M432 0v1350M504 0v1350M576 0v1350M648 0v1350M720 0v1350M792 0v1350M864 0v1350M936 0v1350M1008 0v1350"/>
+  </g>
+  <circle cx="906" cy="124" r="220" fill="#4ea0ff" opacity=".18"/>
+  <g font-family="PingFang SC, Microsoft YaHei, Arial, sans-serif">
+    <circle cx="86" cy="88" r="8" fill="#13d6c4"/>
+    <text x="112" y="97" fill="#eaf2ff" font-size="26" font-weight="800" letter-spacing="7">财经早报</text>
+    <rect x="790" y="69" width="220" height="46" rx="23" fill="rgba(255,255,255,.04)" stroke="#78a0dc" stroke-opacity=".22"/>
+    <text x="824" y="99" fill="#bfd3f5" font-size="18" font-weight="700" letter-spacing="4">2026 · 06 · 05</text>
+    <text x="70" y="220" fill="#13d6c4" font-size="24" font-weight="800" letter-spacing="10">A股 · MARKET</text>
+    <text x="70" y="330" fill="#ffffff" font-size="88" font-weight="900">A股震荡调整</text>
+    <text x="70" y="382" fill="#b9c8e5" font-size="31" font-weight="650">主要指数普遍走弱，仅科创50逆势翻红</text>
+    <rect x="70" y="420" width="320" height="5" rx="3" fill="#13d6c4"/>
+    <g transform="translate(70 496)">
+      <rect width="452" height="202" rx="24" fill="rgba(255,255,255,.045)" stroke="#78a0dc" stroke-opacity=".18"/>
+      <rect width="5" height="202" rx="3" fill="#27e0a0"/>
+      <text x="30" y="58" fill="#fff" font-size="33" font-weight="800">上证指数</text>
+      <text x="30" y="92" fill="#7d8aa8" font-size="16" font-weight="700" letter-spacing="4">SHCOMP</text>
+      <text x="300" y="65" fill="#27e0a0" font-size="36" font-weight="900">-0.64%</text>
+      <text x="30" y="158" fill="#eaf2ff" font-size="52" font-weight="900">3310.44</text>
+    </g>
+    <g transform="translate(558 496)">
+      <rect width="452" height="202" rx="24" fill="rgba(255,255,255,.045)" stroke="#78a0dc" stroke-opacity=".18"/>
+      <rect width="5" height="202" rx="3" fill="#8fb5ff"/>
+      <text x="30" y="58" fill="#fff" font-size="33" font-weight="800">两市成交</text>
+      <text x="30" y="92" fill="#7d8aa8" font-size="16" font-weight="700" letter-spacing="4">TURNOVER</text>
+      <text x="315" y="65" fill="#8fb5ff" font-size="36" font-weight="900">缩量</text>
+      <text x="30" y="158" fill="#eaf2ff" font-size="52" font-weight="900">2.76</text>
+      <text x="140" y="158" fill="#7d8aa8" font-size="22" font-weight="700">万亿</text>
+    </g>
+    <g transform="translate(70 724)">
+      <rect width="452" height="202" rx="24" fill="rgba(255,255,255,.045)" stroke="#78a0dc" stroke-opacity=".18"/>
+      <rect width="5" height="202" rx="3" fill="#ff5b6e"/>
+      <text x="30" y="58" fill="#fff" font-size="33" font-weight="800">科创50</text>
+      <text x="30" y="92" fill="#7d8aa8" font-size="16" font-weight="700" letter-spacing="4">STAR 50</text>
+      <text x="300" y="65" fill="#ff5b6e" font-size="36" font-weight="900">+0.69%</text>
+      <text x="30" y="158" fill="#eaf2ff" font-size="52" font-weight="900">1012.88</text>
+    </g>
+    <g transform="translate(558 724)">
+      <rect width="452" height="202" rx="24" fill="rgba(255,255,255,.045)" stroke="#78a0dc" stroke-opacity=".18"/>
+      <rect width="5" height="202" rx="3" fill="#27e0a0"/>
+      <text x="30" y="58" fill="#fff" font-size="33" font-weight="800">创业板指</text>
+      <text x="30" y="92" fill="#7d8aa8" font-size="16" font-weight="700" letter-spacing="4">CHINEXT</text>
+      <text x="300" y="65" fill="#27e0a0" font-size="36" font-weight="900">-0.83%</text>
+      <text x="30" y="158" fill="#eaf2ff" font-size="52" font-weight="900">2188.02</text>
+    </g>
+    <line x1="70" y1="1202" x2="1010" y2="1202" stroke="#78a0dc" stroke-opacity=".18"/>
+    <text x="70" y="1246" fill="#8fa3c8" font-size="20" font-weight="700">数据来源 · 早间快讯</text>
+    <text x="910" y="1246" fill="#8fa3c8" font-size="20" font-weight="800" letter-spacing="5">02 / 08</text>
+  </g>
+</svg>

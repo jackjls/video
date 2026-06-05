@@ -217,7 +217,7 @@ Nothing installed? Set an Anthropic key and the studio talks to the Messages API
 
 ## Soundtrack
 
-Give the finished video a voice. In **Settings → Audio**, add a MiniMax API key, then in the per-project **Soundtrack** panel:
+Give the finished video a voice. In **Settings → Audio**, add a MiniMax API key, then in the per-project **Soundtrack** panel. The default MiniMax endpoint is the mainland China API (`https://api.minimaxi.com/v1`); override the Base URL only when using another region.
 
 - **Background music** — describe a mood (`calm cinematic ambient, slow build`); MiniMax generates an instrumental track.
 - **Narration** — type a script; MiniMax reads it (TTS).

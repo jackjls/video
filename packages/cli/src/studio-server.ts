@@ -4,14 +4,14 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { readFile, copyFile, mkdir } from 'node:fs/promises';
+import { readFile, copyFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
 import { dirname, extname, join, resolve, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import type { CliContext } from './context.js';
-import { AssetStore, generateTts, generateMusic } from '@html-video/core';
+import { AssetStore, generateTts, generateMusic, type FrameRecord, type MinimaxCredentials, type MinimaxAudioResult } from '@html-video/core';
 import { extractUrls, fetchSource } from './fetch-source.js';
 import { detectAll, findAgent, spawnAgent } from '@html-video/runtime';
 
@@ -475,12 +475,44 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
 
           if (wantNarration) {
             sse({ type: 'audio_progress', stage: 'narration', message: 'generating narration…' });
-            const nar = await generateTts({
-              text: body.narration!.text!.trim(),
-              ...(body.narration!.voiceId !== undefined && { voiceId: body.narration!.voiceId }),
-              ...(body.narration!.languageBoost !== undefined && { languageBoost: body.narration!.languageBoost }),
-              creds,
-            });
+            const byFrame = body.narration!.byFrame ?? {};
+            const orderedFrames = [...(project.frames ?? [])].sort((a, b) => a.order - b.order);
+            const frameLines = orderedFrames
+              .map((f) => ({ frame: f, text: (byFrame[f.graphNodeId] ?? '').trim() }))
+              .filter((x) => x.text.length > 0);
+            const nar = frameLines.length > 1
+              ? await generateAlignedNarration({
+                  frames: orderedFrames,
+                  byFrame,
+                  creds,
+                  ...(body.narration!.voiceId !== undefined && { voiceId: body.narration!.voiceId }),
+                  ...(body.narration!.languageBoost !== undefined && { languageBoost: body.narration!.languageBoost }),
+                  onProgress: (message) => sse({ type: 'audio_progress', stage: 'narration', message }),
+                })
+              : await generateTts({
+                  text: body.narration!.text!.trim(),
+                  ...(body.narration!.voiceId !== undefined && { voiceId: body.narration!.voiceId }),
+                  ...(body.narration!.languageBoost !== undefined && { languageBoost: body.narration!.languageBoost }),
+                  creds,
+                });
+
+            if (isAlignedNarrationResult(nar)) {
+              const graph = await ctx.orchestrator.readContentGraph(projectId);
+              if (graph) {
+                let changed = false;
+                for (const node of graph.nodes) {
+                  const d = nar.durationByFrame[node.id];
+                  if (d !== undefined && node.durationSec !== d) {
+                    node.durationSec = d;
+                    changed = true;
+                  }
+                }
+                if (changed) {
+                  await ctx.orchestrator.writeContentGraph(projectId, graph, { preserveFrames: true });
+                }
+              }
+            }
+
             const { asset } = await ctx.orchestrator.addBufferAsset(
               projectId,
               nar.bytes,
@@ -2448,6 +2480,10 @@ function isMultiFrameType(pickedType: string): boolean {
   return !single;
 }
 
+function isFinanceBriefType(pickedType: string): boolean {
+  return /财经|金融|早报|晚报|市场|行情|finance|market.?brief|morning.?brief|evening.?brief/i.test(pickedType);
+}
+
 function buildStylePhasePrompt(pickedType: string): string {
   const p: string[] = [];
   p.push(`The user has shared their content for a "${pickedType}". Now ask them about visual style with ONE hv-options card. JSON shape EXACTLY as shown — keep "meta" verbatim:`);
@@ -2456,6 +2492,9 @@ function buildStylePhasePrompt(pickedType: string): string {
     meta: { phase: 'style' },
     question: '视觉风格怎么定？',
     options: [
+      ...(isFinanceBriefType(pickedType)
+        ? [{ label: '财经数据屏', hint: '深色网格 / 蓝青行情卡 / 早晚报' }]
+        : []),
       { label: 'Cyberpunk glitch',    hint: '霓虹 / 故障感 / 高对比' },
       { label: 'Swiss minimalist',    hint: '网格 / 无衬线 / 留白' },
       { label: 'Warm-grain magazine', hint: '纸感 / 衬线 / 暖色' },
@@ -2520,7 +2559,7 @@ function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
     opener.push('');
     opener.push(`Reply with TWO things, in this exact order:`);
     opener.push(`1. ONE friendly opening sentence in the user's language (≤ 25 chars).`);
-    opener.push(`2. A fenced \`\`\`hv-options block with the 4 content-type choices below. JSON shape EXACTLY as shown — do not change keys or omit "meta":`);
+    opener.push(`2. A fenced \`\`\`hv-options block with the 5 content-type choices below. JSON shape EXACTLY as shown — do not change keys or omit "meta":`);
     opener.push('```hv-options');
     opener.push(JSON.stringify({
       meta: { phase: 'type' },
@@ -2529,6 +2568,7 @@ function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
         { label: '单帧标题卡',   hint: 'logo / 封面 / 单画面 - 5-10s' },
         { label: '多帧预告片',   hint: '产品 / 活动 teaser, 3-6 帧' },
         { label: '数据大字报',   hint: '1-2 个核心数字, 社媒爆款风' },
+        { label: '财经早晚报',   hint: '8 条热点 / 行情数据 / 分镜旁白' },
         { label: '概念解说短片', hint: '几帧讲清一个 idea / feature' },
       ],
       allow_freeform: true,
@@ -2583,7 +2623,11 @@ function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
       }
     }
     if (turns.length === 0) {
-      p.push(`This is the first content turn. Ask 1–3 short, sharp questions, in the user's language. Keep it under 60 words. Mention they can answer fully, partially, or just say "skip" / "随便".`);
+      if (isFinanceBriefType(pickedType)) {
+        p.push(`This is the first content turn for a finance morning/evening brief. Ask 1–3 short, sharp questions in the user's language: morning or evening report, market scope (A股/港股/美股/全球/行业), and whether to use pasted links/uploads or let the system summarize current hot topics. Keep it under 70 words.`);
+      } else {
+        p.push(`This is the first content turn. Ask 1–3 short, sharp questions, in the user's language. Keep it under 60 words. Mention they can answer fully, partially, or just say "skip" / "随便".`);
+      }
     } else {
       p.push(`The user has already shared:`);
       for (const t of turns) p.push(`  - ${t.slice(0, 200)}`);
@@ -2633,13 +2677,14 @@ function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
       ? lastCardPickByPhase(history, 'type') ?? ''
       : (inputs.pickedType ?? '');
     const isMulti = !!pickedType && isMultiFrameType(pickedType);
+    const isFinanceBrief = isFinanceBriefType(pickedType);
     const defaults = {
-      aspect:      pre.aspect      ?? '16:9 横屏',
+      aspect:      pre.aspect      ?? (isFinanceBrief ? '4:5 小红书' : '16:9 横屏'),
       duration:    pre.duration    ?? (isMulti ? '15' : '5'),
-      frame_count: pre.frame_count ?? (isMulti ? '4' : '1'),
+      frame_count: pre.frame_count ?? (isFinanceBrief ? '8' : (isMulti ? '4' : '1')),
       // Per-frame pacing default 4s — comfortable, avoids the "rushed" feel a
       // short total ÷ many frames produces. Total is derived from this × frames.
-      per_frame:   pre.per_frame   ?? '4',
+      per_frame:   pre.per_frame   ?? (isFinanceBrief ? '8' : '4'),
     };
     const p: string[] = [];
     if (isEdit) {
@@ -3433,6 +3478,183 @@ h1{font-size:8vw;letter-spacing:-.03em;animation:in 1s ease forwards;opacity:0;t
   }
 
   return { frameCount: graph.nodes.length, intent: graph.intent };
+}
+
+type AlignedNarrationResult = MinimaxAudioResult & {
+  durationByFrame: Record<string, number>;
+};
+
+function isAlignedNarrationResult(result: MinimaxAudioResult): result is AlignedNarrationResult {
+  return typeof (result as { durationByFrame?: unknown }).durationByFrame === 'object'
+    && (result as { durationByFrame?: unknown }).durationByFrame !== null;
+}
+
+async function generateAlignedNarration(args: {
+  frames: FrameRecord[];
+  byFrame: Record<string, string>;
+  creds: MinimaxCredentials;
+  voiceId?: string;
+  languageBoost?: string;
+  onProgress?: (message: string) => void;
+}): Promise<AlignedNarrationResult> {
+  const frames = [...args.frames].sort((a, b) => a.order - b.order);
+  if (frames.length === 0) {
+    throw new Error('No frames available for aligned narration.');
+  }
+
+  const workDir = join(tmpdir(), `html-video-narration-${randomUUID()}`);
+  await mkdir(workDir, { recursive: true });
+  const durationByFrame: Record<string, number> = {};
+  const segments: Array<{ graphNodeId: string; path?: string; durationSec: number; text: string }> = [];
+
+  try {
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i]!;
+      const text = (args.byFrame[frame.graphNodeId] ?? '').trim();
+      if (!text) {
+        const durationSec = Math.max(1, roundTenth(frame.durationSec || 1));
+        durationByFrame[frame.graphNodeId] = durationSec;
+        segments.push({ graphNodeId: frame.graphNodeId, durationSec, text });
+        continue;
+      }
+
+      args.onProgress?.(`generating narration ${i + 1}/${frames.length}…`);
+      const audio = await generateTts({
+        text,
+        ...(args.voiceId !== undefined && { voiceId: args.voiceId }),
+        ...(args.languageBoost !== undefined && { languageBoost: args.languageBoost }),
+        creds: args.creds,
+      });
+      const segPath = join(workDir, `${String(i + 1).padStart(2, '0')}-${frame.graphNodeId.replace(/[^a-z0-9_-]/gi, '_')}.mp3`);
+      await writeFile(segPath, audio.bytes);
+      const trimmedPath = join(workDir, `${String(i + 1).padStart(2, '0')}-${frame.graphNodeId.replace(/[^a-z0-9_-]/gi, '_')}.trim.mp3`);
+      await trimAudioSilence(segPath, trimmedPath);
+
+      // Trim MiniMax's leading/trailing pauses and keep only a tiny handoff gap
+      // between frames. Whole-second rounding made market briefs feel stalled.
+      const spokenSec = await probeAudioDuration(trimmedPath).catch(() => audio.durationSec ?? estimateSpeechSeconds(text));
+      const durationSec = Math.max(1.2, roundTenth(spokenSec + 0.12));
+      durationByFrame[frame.graphNodeId] = durationSec;
+      segments.push({ graphNodeId: frame.graphNodeId, path: trimmedPath, durationSec, text });
+    }
+
+    const outPath = join(workDir, 'aligned-narration.mp3');
+    await concatAudioSegments(segments, outPath);
+    const bytes = await readFile(outPath);
+    return {
+      bytes,
+      ext: '.mp3',
+      durationByFrame,
+      providerNote: `minimax/aligned-narration · ${segments.filter((s) => s.text).length}/${segments.length} frames · ${bytes.length} bytes`,
+      durationSec: segments.reduce((sum, s) => sum + s.durationSec, 0),
+    };
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function concatAudioSegments(
+  segments: Array<{ path?: string; durationSec: number }>,
+  outputPath: string,
+): Promise<void> {
+  const { spawn } = await import('node:child_process');
+  if (segments.length === 0) {
+    throw new Error('No narration segments to concatenate.');
+  }
+
+  const inputs: string[] = [];
+  const filters: string[] = [];
+  const labels: string[] = [];
+  segments.forEach((seg, i) => {
+    const duration = Math.max(0.1, seg.durationSec);
+    if (seg.path) {
+      inputs.push('-i', seg.path);
+    } else {
+      inputs.push('-f', 'lavfi', '-t', duration.toFixed(3), '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+    }
+    const label = `[s${i}]`;
+    filters.push(`[${i}:a]aresample=44100,aformat=channel_layouts=stereo,apad,atrim=0:${duration.toFixed(3)},asetpts=N/SR/TB${label}`);
+    labels.push(label);
+  });
+  filters.push(`${labels.join('')}concat=n=${segments.length}:v=0:a=1[aout]`);
+
+  const ffArgs = [
+    '-y',
+    ...inputs,
+    '-filter_complex', filters.join(';'),
+    '-map', '[aout]',
+    '-c:a', 'libmp3lame',
+    '-b:a', '192k',
+    outputPath,
+  ];
+
+  await new Promise<void>((resolveFn, reject) => {
+    const proc = spawn('ffmpeg', ffArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+    proc.on('error', reject);
+    proc.on('exit', (code: number | null) => {
+      if (code === 0) resolveFn();
+      else reject(new Error(`ffmpeg narration concat exited with code ${code}: ${stderr.slice(-2000)}`));
+    });
+  });
+}
+
+async function trimAudioSilence(inputPath: string, outputPath: string): Promise<void> {
+  const { spawn } = await import('node:child_process');
+  const ffArgs = [
+    '-y',
+    '-i', inputPath,
+    '-af',
+    // Remove MiniMax's head/tail silence, but keep natural pauses inside a line.
+    'silenceremove=start_periods=1:start_duration=0.05:start_threshold=-42dB,areverse,silenceremove=start_periods=1:start_duration=0.18:start_threshold=-42dB,areverse',
+    '-c:a', 'libmp3lame',
+    '-b:a', '192k',
+    outputPath,
+  ];
+
+  await new Promise<void>((resolveFn, reject) => {
+    const proc = spawn('ffmpeg', ffArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+    proc.on('error', reject);
+    proc.on('exit', (code: number | null) => {
+      if (code === 0) resolveFn();
+      else reject(new Error(`ffmpeg silence trim exited with code ${code}: ${stderr.slice(-2000)}`));
+    });
+  });
+}
+
+async function probeAudioDuration(path: string): Promise<number> {
+  const { spawn } = await import('node:child_process');
+  return await new Promise<number>((resolveFn, reject) => {
+    const proc = spawn('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      path,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+    proc.on('error', reject);
+    proc.on('exit', (code: number | null) => {
+      const n = Number(stdout.trim());
+      if (code === 0 && Number.isFinite(n) && n > 0) resolveFn(n);
+      else reject(new Error(`ffprobe duration failed: ${stderr.slice(-400)}`));
+    });
+  });
+}
+
+function roundTenth(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+function estimateSpeechSeconds(text: string): number {
+  const zhChars = (text.match(/[\u3400-\u9fff]/g) ?? []).length;
+  const asciiWords = (text.replace(/[\u3400-\u9fff]/g, ' ').match(/[A-Za-z0-9]+/g) ?? []).length;
+  return zhChars * 0.18 + asciiWords * 0.38 + 0.4;
 }
 
 /** Describe a node's purpose for prompt context. */

@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>China Market Brief</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <style>
+    :root {
+      --bg: #05080f;
+      --panel: rgba(255, 255, 255, .035);
+      --line: rgba(120, 150, 210, .16);
+      --ink: #eaf2ff;
+      --muted: #7d8aa8;
+      --accent: #4ea0ff;
+      --accent2: #13d6c4;
+      --up: #ff5b6e;
+      --down: #27e0a0;
+      --neutral: #8fb5ff;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      overflow: hidden;
+      font-family: "DIN Alternate", "SF Pro Display", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .fit {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #02040a;
+    }
+
+    .stage {
+      position: relative;
+      width: 1080px;
+      height: 1350px;
+      transform-origin: center;
+      overflow: hidden;
+      background:
+        radial-gradient(1200px 700px at 18% -8%, rgba(56, 189, 248, .18), transparent 60%),
+        radial-gradient(900px 600px at 110% 108%, rgba(19, 214, 196, .12), transparent 55%),
+        linear-gradient(160deg, #070b16 0%, #05080f 56%, #03050a 100%);
+    }
+
+    .grid {
+      position: absolute;
+      inset: 0;
+      opacity: .48;
+      background-image:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: radial-gradient(120% 90% at 56% 20%, #000 40%, transparent 92%);
+    }
+
+    .scan {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: .055;
+      background: repeating-linear-gradient(0deg, #9fc2ff 0 2px, transparent 2px 5px);
+    }
+
+    .orb {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      right: -170px;
+      top: -170px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(78, 160, 255, .38), transparent 66%);
+      filter: blur(18px);
+    }
+
+    .wrap {
+      position: relative;
+      height: 100%;
+      padding: 78px 70px 72px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .dot {
+      width: 15px;
+      height: 15px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: var(--accent2);
+      box-shadow: 0 0 0 6px rgba(19, 214, 196, .12), 0 0 28px var(--accent2);
+    }
+
+    .brand-title {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: .28em;
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: .44em;
+      white-space: nowrap;
+    }
+
+    .date-chip {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 11px 20px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .025);
+      color: #bfd3f5;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: .18em;
+      white-space: nowrap;
+    }
+
+    .date-chip i {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 14px var(--accent);
+    }
+
+    .hero {
+      margin-top: 62px;
+    }
+
+    .kicker {
+      color: var(--accent2);
+      font-size: 23px;
+      font-weight: 800;
+      letter-spacing: .42em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 0;
+      max-width: 900px;
+      font-size: 88px;
+      line-height: 1.03;
+      font-weight: 900;
+      letter-spacing: -.025em;
+    }
+
+    .subhead {
+      margin-top: 20px;
+      max-width: 840px;
+      color: #b9c8e5;
+      font-size: 30px;
+      line-height: 1.42;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+
+    .rule {
+      width: 0;
+      height: 4px;
+      margin-top: 32px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    .cards {
+      margin-top: 48px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      position: relative;
+      min-height: 202px;
+      padding: 30px 30px 26px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .012));
+      backdrop-filter: blur(6px);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 5px;
+      border-radius: 6px;
+      background: var(--neutral);
+      box-shadow: 0 0 24px rgba(143, 181, 255, .35);
+    }
+
+    .card.up::before { background: var(--up); box-shadow: 0 0 24px rgba(255, 91, 110, .38); }
+    .card.down::before { background: var(--down); box-shadow: 0 0 24px rgba(39, 224, 160, .34); }
+
+    .card-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 42%;
+      opacity: .55;
+      background: linear-gradient(90deg, rgba(143, 181, 255, .14), transparent);
+    }
+
+    .card.up .card-bar { background: linear-gradient(90deg, rgba(255, 91, 110, .16), transparent); }
+    .card.down .card-bar { background: linear-gradient(90deg, rgba(39, 224, 160, .14), transparent); }
+
+    .card-head {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .name {
+      font-size: 33px;
+      line-height: 1.12;
+      font-weight: 800;
+    }
+
+    .label {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: .18em;
+    }
+
+    .change {
+      color: var(--neutral);
+      font-size: 35px;
+      line-height: 1;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .card.up .change { color: var(--up); }
+    .card.down .change { color: var(--down); }
+
+    .value-row {
+      position: relative;
+      margin-top: 28px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .value {
+      font-size: 50px;
+      line-height: 1;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.01em;
+    }
+
+    .unit {
+      color: var(--muted);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+
+    .spark {
+      position: absolute;
+      right: 22px;
+      bottom: 18px;
+      width: 168px;
+      height: 58px;
+      opacity: .86;
+    }
+
+    .spark path {
+      fill: none;
+      stroke: var(--neutral);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .card.up .spark path { stroke: var(--up); }
+    .card.down .spark path { stroke: var(--down); }
+
+    .foot {
+      margin-top: auto;
+      padding-top: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--line);
+      color: #8fa3c8;
+    }
+
+    .foot-left {
+      font-size: 20px;
+      font-weight: 650;
+      letter-spacing: .06em;
+    }
+
+    .foot-right {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: .28em;
+    }
+
+    .reveal { opacity: 0; }
+  </style>
+</head>
+<body>
+  <div class="fit">
+    <div class="stage" id="stage">
+      <div class="grid"></div>
+      <div class="orb" id="orb"></div>
+      <div class="scan"></div>
+
+      <main class="wrap">
+        <header class="top">
+          <div class="brand reveal" id="brand">
+            <span class="dot"></span>
+            <div>
+              <div class="brand-title" data-hv-text="brand">财经早报</div>
+              <div class="brand-sub" data-hv-text="brand_sub">MORNING MARKETS</div>
+            </div>
+          </div>
+          <div class="date-chip reveal" id="dateChip"><i></i><span data-hv-text="date">2026 · 06 · 05</span></div>
+        </header>
+
+        <section class="hero">
+          <div class="kicker reveal" id="kicker" data-hv-text="kicker">A股 · MARKET</div>
+          <h1 class="reveal" id="headline" data-hv-text="headline">A股震荡调整</h1>
+          <div class="subhead reveal" id="subhead" data-hv-text="subhead">主要指数普遍走弱，仅科创50逆势翻红</div>
+          <div class="rule" id="rule"></div>
+        </section>
+
+        <section class="cards" id="cards">
+          <article class="card down reveal" data-card>
+            <div class="card-bar"></div>
+            <div class="card-head">
+              <div class="name" data-hv-text="card_1_name">上证指数<span class="label" data-hv-text="card_1_label">SHCOMP</span></div>
+              <div class="change" data-hv-text="card_1_change">-0.64%</div>
+            </div>
+            <div class="value-row"><span class="value" data-hv-text="card_1_value">3310.44</span><span class="unit" data-hv-text="card_1_unit">点</span></div>
+            <svg class="spark" viewBox="0 0 168 58" preserveAspectRatio="none"><path d="M4,14 36,22 68,18 96,30 128,42 164,50"/></svg>
+          </article>
+
+          <article class="card neutral reveal" data-card>
+            <div class="card-bar"></div>
+            <div class="card-head">
+              <div class="name" data-hv-text="card_2_name">两市成交<span class="label" data-hv-text="card_2_label">TURNOVER</span></div>
+              <div class="change" data-hv-text="card_2_change">缩量</div>
+            </div>
+            <div class="value-row"><span class="value" data-hv-text="card_2_value">2.76</span><span class="unit" data-hv-text="card_2_unit">万亿</span></div>
+            <svg class="spark" viewBox="0 0 168 58" preserveAspectRatio="none"><path d="M4,20 36,18 68,26 96,24 128,34 164,38"/></svg>
+          </article>
+
+          <article class="card up reveal" data-card>
+            <div class="card-bar"></div>
+            <div class="card-head">
+              <div class="name" data-hv-text="card_3_name">科创50<span class="label" data-hv-text="card_3_label">STAR 50</span></div>
+              <div class="change" data-hv-text="card_3_change">+0.69%</div>
+            </div>
+            <div class="value-row"><span class="value" data-hv-text="card_3_value">1012.88</span><span class="unit" data-hv-text="card_3_unit">点</span></div>
+            <svg class="spark" viewBox="0 0 168 58" preserveAspectRatio="none"><path d="M4,48 36,42 68,38 96,28 128,18 164,10"/></svg>
+          </article>
+
+          <article class="card down reveal" data-card>
+            <div class="card-bar"></div>
+            <div class="card-head">
+              <div class="name" data-hv-text="card_4_name">创业板指<span class="label" data-hv-text="card_4_label">CHINEXT</span></div>
+              <div class="change" data-hv-text="card_4_change">-0.83%</div>
+            </div>
+            <div class="value-row"><span class="value" data-hv-text="card_4_value">2188.02</span><span class="unit" data-hv-text="card_4_unit">点</span></div>
+            <svg class="spark" viewBox="0 0 168 58" preserveAspectRatio="none"><path d="M4,12 36,20 68,24 96,32 128,38 164,52"/></svg>
+          </article>
+        </section>
+
+        <footer class="foot reveal" id="foot">
+          <div class="foot-left" data-hv-text="foot_left">数据来源 · 早间快讯</div>
+          <div class="foot-right" data-hv-text="foot_right">02 / 08</div>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (function fit() {
+      const stage = document.getElementById('stage');
+      function resize() {
+        const scale = Math.min(innerWidth / 1080, innerHeight / 1350);
+        stage.style.transform = 'scale(' + scale + ')';
+      }
+      addEventListener('resize', resize);
+      resize();
+    })();
+
+    window.addEventListener('load', () => {
+      gsap.set('.reveal', { opacity: 0, y: 26 });
+
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      tl.to('#brand', { opacity: 1, y: 0, duration: .7 }, 0)
+        .to('#dateChip', { opacity: 1, y: 0, duration: .62 }, .12)
+        .to('#kicker', { opacity: 1, y: 0, duration: .62 }, .36)
+        .to('#headline', { opacity: 1, y: 0, duration: .82, ease: 'power4.out' }, .48)
+        .to('#subhead', { opacity: 1, y: 0, duration: .7 }, .78)
+        .to('#rule', { width: 320, duration: .82, ease: 'power2.inOut' }, .86)
+        .to('[data-card]', { opacity: 1, y: 0, duration: .72, stagger: .12 }, 1.08)
+        .to('#foot', { opacity: 1, y: 0, duration: .6 }, 1.72);
+
+      document.querySelectorAll('.spark path').forEach((path, i) => {
+        const len = path.getTotalLength();
+        gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+        gsap.to(path, { strokeDashoffset: 0, duration: 1.05, delay: 1.28 + i * .12, ease: 'power2.out' });
+      });
+
+      document.querySelectorAll('.card-bar').forEach((bar, i) => {
+        gsap.fromTo(bar, { width: '0%' }, { width: i === 1 ? '50%' : '62%', duration: .9, delay: 1.18 + i * .12, ease: 'power2.out' });
+      });
+
+      gsap.to('#orb', { xPercent: 6, yPercent: 8, duration: 5.5, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+      gsap.to('.dot', { boxShadow: '0 0 0 10px rgba(19,214,196,.05),0 0 36px #13d6c4', duration: 1.4, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+    });
+  </script>
+</body>
+</html>

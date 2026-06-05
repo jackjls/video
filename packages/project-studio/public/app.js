@@ -1082,6 +1082,7 @@ function wireSoundtrackPanel() {
     previewEl.innerHTML = '';
     if (musicStatusEl) musicStatusEl.textContent = '';
     if (narrationStatusEl) narrationStatusEl.textContent = '';
+    state._narrationByFrame = {};
     if (state.selected) delete state.selected.soundtrack;
   };
 
@@ -1098,7 +1099,7 @@ function wireSoundtrackPanel() {
       payload.music = { prompt: mp, instrumental: true, volumeDb: Number(musicVol.value) };
     } else {
       // Stitch every frame's line in order into one narration track.
-      const stitched = sortedFrames
+      const stitched = liveFrames()
         .map((f) => (state._narrationByFrame[f.graphNodeId] || '').trim())
         .filter((s) => s.length > 0).join('\n');
       const nt = stitched || narrationText.value.trim();
@@ -3254,4 +3255,3 @@ init().catch((e) => {
   console.error('[hv-studio] init failed:', e);
   try { toast(`init 失败：${e.message}`, 'error'); } catch {}
 });
-

@@ -216,7 +216,7 @@ node packages/cli/dist/bin.js search-templates --intent "github stars race" --to
 
 ## 配乐
 
-给成片加上声音。在 **Settings → Audio** 填入 MiniMax API key，然后在每个项目的 **Soundtrack** 面板：
+给成片加上声音。在 **Settings → Audio** 填入 MiniMax API key，然后在每个项目的 **Soundtrack** 面板。默认 MiniMax 接口为国内版 API（`https://api.minimaxi.com/v1`）；只有使用其他区域的 key 时才需要改 Base URL。
 
 - **背景音乐** —— 描述一种情绪（`舒缓的电影感氛围，缓慢推进`），MiniMax 生成一段器乐。
 - **旁白** —— 输入文案，MiniMax 朗读（TTS）。
