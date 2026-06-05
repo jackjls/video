@@ -205,7 +205,7 @@ const DICT = {
     'settings.audio.saved': '✓ Saved',
     'settings.audio.save_failed': 'Save failed: {message}',
     'settings.audio.need_key': 'Enter an API key first.',
-    'settings.audio.hint': 'Stored locally in .html-video/media-config.json. Leave Base URL empty unless your key is for api.minimax.io.',
+    'settings.audio.hint': 'Stored locally in .html-video/media-config.json. Leave Base URL empty for the mainland China API; set it only when using another MiniMax region.',
 
     'settings.agent.title': 'Agent',
     'settings.agent.subtitle': 'Pick the runtime that turns your chat into HTML.',
@@ -439,7 +439,7 @@ const DICT = {
     'settings.audio.saved': '✓ 已保存',
     'settings.audio.save_failed': '保存失败：{message}',
     'settings.audio.need_key': '请先填写 API key。',
-    'settings.audio.hint': '保存在本地 .html-video/media-config.json。Base URL 留空即可，除非你的 key 是 api.minimax.io 的。',
+    'settings.audio.hint': '保存在本地 .html-video/media-config.json。国内版 API 可留空；只有使用其他 MiniMax 区域时才需要填写 Base URL。',
 
     'settings.agent.title': 'Agent',
     'settings.agent.subtitle': '选一个运行时把你的对话翻成 HTML。',

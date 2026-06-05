@@ -961,6 +961,7 @@ function wireSoundtrackPanel() {
     previewEl.innerHTML = '';
     if (musicStatusEl) musicStatusEl.textContent = '';
     if (narrationStatusEl) narrationStatusEl.textContent = '';
+    state._narrationByFrame = {};
     if (state.selected) delete state.selected.soundtrack;
   };
 
@@ -977,7 +978,7 @@ function wireSoundtrackPanel() {
       payload.music = { prompt: mp, instrumental: true, volumeDb: Number(musicVol.value) };
     } else {
       // Stitch every frame's line in order into one narration track.
-      const stitched = sortedFrames
+      const stitched = liveFrames()
         .map((f) => (state._narrationByFrame[f.graphNodeId] || '').trim())
         .filter((s) => s.length > 0).join('\n');
       const nt = stitched || narrationText.value.trim();
@@ -2762,7 +2763,7 @@ async function renderSettingsAudio(panel) {
       </label>
       <label class="audio-field">
         <span>${esc(t('settings.audio.base_url'))}</span>
-        <input type="text" id="mm-base-url" placeholder="https://api.minimaxi.chat/v1" autocomplete="off" />
+        <input type="text" id="mm-base-url" placeholder="https://api.minimaxi.com/v1" autocomplete="off" />
       </label>
       <div class="audio-actions">
         <button class="audio-save primary-action" id="mm-save" style="background:var(--accent);border-color:var(--accent);color:var(--accent-fg)">${esc(t('settings.audio.save'))}</button>
@@ -3013,4 +3014,3 @@ init().catch((e) => {
   console.error('[hv-studio] init failed:', e);
   try { toast(`init 失败：${e.message}`, 'error'); } catch {}
 });
-

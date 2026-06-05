@@ -77,7 +77,7 @@ export class MediaConfigStore {
   resolveMinimax(): MinimaxCredentials | null {
     const cfg = this.read().minimax;
     if (cfg?.apiKey) {
-      const baseUrl = (cfg.baseUrl || '').trim().replace(/\/$/, '') || 'https://api.minimaxi.chat/v1';
+      const baseUrl = (cfg.baseUrl || '').trim().replace(/\/$/, '') || 'https://api.minimaxi.com/v1';
       return { apiKey: cfg.apiKey, baseUrl };
     }
     return resolveMinimaxCredentials();
