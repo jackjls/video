@@ -799,6 +799,23 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
                   } catch { /* fall back to path-only */ }
                 }
                 attachments.push(att);
+                const pdfText = await extractPdfTextAttachment(newAsset.path ?? p.tmpPath, p.filename);
+                if (pdfText) {
+                  const extracted = await ctx.orchestrator.addInlineAsset(
+                    id,
+                    pdfText,
+                    'text',
+                    `Extracted text from ${p.filename}`,
+                  );
+                  const textAsset = extracted.assets[extracted.assets.length - 1];
+                  attachments.push({
+                    path: textAsset?.path ?? newAsset.path ?? p.tmpPath,
+                    kind: 'text',
+                    filename: `${p.filename}.txt`,
+                    size: Buffer.byteLength(pdfText, 'utf8'),
+                    inlineText: pdfText,
+                  });
+                }
               }
             }
           }
@@ -947,6 +964,18 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
               ...(inlineText !== undefined && { inlineText }),
             });
             seenPaths.add(asset.path);
+          } else if (asset.type === 'reference-link' && asset.path && !seenPaths.has(asset.path)) {
+            const pdfText = await extractPdfTextAttachment(asset.path, asset.metadata.filename);
+            if (pdfText) {
+              attachments.push({
+                path: asset.path,
+                kind: 'text',
+                filename: `${asset.metadata.filename ?? basename(asset.path)}.txt`,
+                size: Buffer.byteLength(pdfText, 'utf8'),
+                inlineText: pdfText,
+              });
+              seenPaths.add(asset.path);
+            }
           }
         }
 
@@ -2398,6 +2427,61 @@ function renderAttachment(a: Attachment): string[] {
     ];
   }
   return [`- [${a.kind}] ${a.filename} — ${a.path}`];
+}
+
+async function extractPdfTextAttachment(path: string, filename?: string): Promise<string | null> {
+  const lower = `${filename ?? ''} ${path}`.toLowerCase();
+  if (!lower.includes('.pdf')) return null;
+  try {
+    const text = await extractPdfText(path);
+    const clean = text.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{4,}/g, '\n\n').trim();
+    if (clean.length < 20) return null;
+    return clean.length > 20_000 ? `${clean.slice(0, 20_000)}\n\n[PDF text truncated]` : clean;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    process.stderr.write(`[studio:pdf] skip ${filename ?? basename(path)}: ${msg}\n`);
+    return null;
+  }
+}
+
+async function extractPdfText(path: string): Promise<string> {
+  const { spawn } = await import('node:child_process');
+  const script = `
+import sys
+path = sys.argv[1]
+text = ""
+try:
+    import pdfplumber
+    parts = []
+    with pdfplumber.open(path) as pdf:
+        for i, page in enumerate(pdf.pages[:20], 1):
+            parts.append(f"--- page {i} ---\\n" + (page.extract_text() or ""))
+    text = "\\n\\n".join(parts)
+except Exception:
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(path)
+        parts = []
+        for i, page in enumerate(reader.pages[:20], 1):
+            parts.append(f"--- page {i} ---\\n" + (page.extract_text() or ""))
+        text = "\\n\\n".join(parts)
+    except Exception as e:
+        sys.stderr.write(str(e))
+        sys.exit(1)
+sys.stdout.write(text)
+`;
+  return await new Promise<string>((resolveFn, reject) => {
+    const proc = spawn('python3', ['-c', script, path], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
+    proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8'); });
+    proc.on('error', reject);
+    proc.on('exit', (code: number | null) => {
+      if (code === 0 && stdout.trim()) resolveFn(stdout);
+      else reject(new Error(stderr.slice(-1000) || `python3 exited with code ${code}`));
+    });
+  });
 }
 
 /** A design.md / frame.md / DESIGN.md attachment is a brand + motion SPEC the
