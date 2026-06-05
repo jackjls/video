@@ -2074,17 +2074,21 @@ async function commitInlineTextEdits(iframe) {
   const target = parser.parseFromString(serverHtml, 'text/html');
   const live = iframe.contentDocument;
   const liveByKey = new Map();
+  const liveNodes = live ? Array.from(live.querySelectorAll('[data-hv-text]')) : [];
   if (live) {
-    live.querySelectorAll('[data-hv-text]').forEach((el) => {
+    liveNodes.forEach((el) => {
       const k = el.getAttribute('data-hv-text');
       if (k) liveByKey.set(k, el.textContent ?? '');
     });
   }
   let changed = 0;
-  target.querySelectorAll('[data-hv-text]').forEach((el) => {
+  const targetNodes = Array.from(target.querySelectorAll('[data-hv-text]'));
+  targetNodes.forEach((el, i) => {
     const k = el.getAttribute('data-hv-text');
-    if (!k || !liveByKey.has(k)) return;
-    const newText = liveByKey.get(k);
+    const newText = k && liveByKey.has(k)
+      ? liveByKey.get(k)
+      : (liveNodes[i]?.textContent ?? null);
+    if (newText === null) return;
     if (el.textContent !== newText) {
       el.textContent = newText;
       changed += 1;
@@ -2320,13 +2324,14 @@ async function refreshTextFields() {
   const nodes = doc.querySelectorAll('[data-hv-text]');
   const seen = new Set();
   const fields = [];
-  for (const el of nodes) {
-    const key = el.getAttribute('data-hv-text');
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
+  nodes.forEach((el, sourceIndex) => {
+    const rawKey = (el.getAttribute('data-hv-text') || '').trim();
+    const key = rawKey || `text_${sourceIndex + 1}`;
+    if (rawKey && seen.has(key)) return;
+    if (rawKey) seen.add(key);
     const text = el.textContent ?? '';
-    fields.push({ key, original: text, current: text });
-  }
+    fields.push({ key, rawKey, sourceIndex, original: text, current: text });
+  });
   state.textFields = fields;
   renderTextFields();
 }
@@ -2399,9 +2404,15 @@ async function commitTextEdits() {
   const html = await fetchActiveFrameHtml();
   if (!html) { setSaveState('error', 'error'); return; }
   const doc = new DOMParser().parseFromString(html, 'text/html');
+  const textNodes = Array.from(doc.querySelectorAll('[data-hv-text]'));
   for (const f of state.textFields) {
-    const nodes = doc.querySelectorAll(`[data-hv-text="${cssEscape(f.key)}"]`);
-    nodes.forEach((n) => { n.textContent = f.current; });
+    const rawKey = (f.rawKey || '').trim();
+    if (rawKey) {
+      const nodes = doc.querySelectorAll(`[data-hv-text="${cssEscape(rawKey)}"]`);
+      nodes.forEach((n) => { n.textContent = f.current; });
+    } else if (Number.isInteger(f.sourceIndex) && textNodes[f.sourceIndex]) {
+      textNodes[f.sourceIndex].textContent = f.current;
+    }
     f.original = f.current;
   }
   // Serialize back: include doctype because DOMParser drops it
