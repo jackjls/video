@@ -1063,6 +1063,25 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           phaseInfo.phase === 'generate' &&
           Number(phaseInfo.inputs.collected?.frame_count ?? '1') > 1;
 
+        // Persist the chosen aspect as a concrete resolution BEFORE generation
+        // starts, for single- and multi-frame alike. The preview box and MP4
+        // export both read project.preferences.resolution; the single-frame
+        // path never wrote it, so a 9:16 video previewed cropped in the
+        // default 1920×1080 landscape box.
+        if (phaseInfo.phase === 'generate') {
+          const aspect = ((phaseInfo.inputs.collected?.aspect ?? '16:9').split(/\s+/)[0] ?? '16:9');
+          const dims =
+            aspect === '9:16' ? { width: 1080, height: 1920 } :
+            aspect === '1:1' ? { width: 1080, height: 1080 } :
+            aspect === '4:5' ? { width: 1080, height: 1350 } :
+            { width: 1920, height: 1080 };
+          try {
+            const proj = await ctx.projects.load(id);
+            proj.preferences = { ...proj.preferences, resolution: dims };
+            await ctx.projects.save(proj);
+          } catch { /* best-effort; generation proceeds either way */ }
+        }
+
         // Post-generation iteration: the card-driven sub-flow resolved to a
         // concrete change. Re-use the existing storyboard rather than guessing.
         //   restyle         → keep graph text, re-render every frame in the newly

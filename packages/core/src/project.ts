@@ -149,6 +149,19 @@ export class ProjectOrchestrator {
     // v0.3: variables are no longer the user-facing surface. Reset on every
     // template change so old keys don't bleed through into the new context.
     project.variables = {};
+    // Seed the project resolution from the template's declared default so the
+    // studio preview box (and a later export) matches the template's real
+    // aspect — a 9:16 template in a template-only fast path otherwise fell back
+    // to 1920×1080 and rendered cropped in a landscape preview box.
+    if (templateId !== null) {
+      const def = this.deps.templates.get(templateId).output?.resolution?.default;
+      if (def?.width && def?.height) {
+        project.preferences = {
+          ...project.preferences,
+          resolution: { width: def.width, height: def.height },
+        };
+      }
+    }
     project.status = downgradeStatus(project.status, 'draft');
     await this.deps.projects.save(project);
     return project;
