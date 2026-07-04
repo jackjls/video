@@ -63,8 +63,8 @@ async function main() {
   ok(`assets=${p.assets.length}`);
 
   // 3. Pick a template
-  log('set template = frame-data-chart-nyt');
-  p = await ctx.orchestrator.setTemplate(project1.id, 'frame-data-chart-nyt');
+  log('set template = frame-brief-data-terminal');
+  p = await ctx.orchestrator.setTemplate(project1.id, 'frame-brief-data-terminal');
   ok(`templateId=${p.templateId} variables(after-defaults)=${JSON.stringify(p.variables).slice(0, 80)}…`);
 
   // 4. Set variables (use the chart data we just added)
@@ -87,13 +87,13 @@ async function main() {
   ok(`status=${previewedProj.status} html=${htmlPath}`);
 
   // 6. Switch template to test variable preservation
-  log('switch template to frame-glitch-title');
-  p = await ctx.orchestrator.setTemplate(project1.id, 'frame-glitch-title');
+  log('switch template to frame-brief-black-gold');
+  p = await ctx.orchestrator.setTemplate(project1.id, 'frame-brief-black-gold');
   ok(`now templateId=${p.templateId} kept-vars=${JSON.stringify(p.variables)}`);
 
   // 7. Switch back + render again
-  log('switch back to frame-data-chart-nyt');
-  p = await ctx.orchestrator.setTemplate(project1.id, 'frame-data-chart-nyt');
+  log('switch back to frame-brief-data-terminal');
+  p = await ctx.orchestrator.setTemplate(project1.id, 'frame-brief-data-terminal');
   p = await ctx.orchestrator.setVariables(project1.id, {
     title: 'OD Plugin Library Distribution',
     data: JSON.parse(chartData),
