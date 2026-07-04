@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <rect width="1080" height="1920" fill="#f6f1e6"/>
+  <rect width="1080" height="10" fill="#221e17"/>
+  <rect x="26" y="26" width="1028" height="1868" fill="none" stroke="#221e17" stroke-opacity=".35"/>
+  <rect x="72" y="94" width="54" height="54" fill="#221e17"/>
+  <text x="99" y="132" fill="#f6f1e6" font-family="Georgia, serif" font-size="26" text-anchor="middle">F</text>
+  <text x="148" y="114" fill="#8b8171" font-family="Helvetica, Arial" font-size="18" letter-spacing="3">COMPANY MARKET INTELLIGENCE</text>
+  <text x="148" y="158" fill="#221e17" font-family="Songti SC, Georgia, serif" font-size="40" font-weight="700">AI 金融早报</text>
+  <rect x="72" y="232" width="936" height="1" fill="#221e17" fill-opacity=".55"/>
+  <rect x="72" y="237" width="936" height="1" fill="#221e17" fill-opacity=".55"/>
+  <text x="72" y="304" fill="#b5342a" font-family="Helvetica, Arial" font-size="20" font-weight="700" letter-spacing="5">MARKET THESIS</text>
+  <text x="72" y="390" fill="#221e17" font-family="Songti SC, Georgia, serif" font-size="70" font-weight="700">风险偏好回到政策</text>
+  <text x="72" y="476" fill="#221e17" font-family="Songti SC, Georgia, serif" font-size="70" font-weight="700">与算力主线</text>
+  <text x="72" y="544" fill="#4f4739" font-family="Helvetica, Arial" font-size="28">隔夜海外科技股修复，资金沿高确定性产业链轮动。</text>
+  <g>
+    <rect x="72" y="604" width="300" height="122" fill="#fdfaf2" stroke="#221e17" stroke-opacity=".18"/>
+    <rect x="72" y="604" width="300" height="3" fill="#221e17"/>
+    <text x="90" y="644" fill="#8b8171" font-family="Helvetica, Arial" font-size="16">沪深300期指</text>
+    <text x="90" y="690" fill="#c23b2e" font-family="Helvetica, Arial" font-size="32" font-weight="700">+0.42%</text>
+    <rect x="390" y="604" width="300" height="122" fill="#fdfaf2" stroke="#221e17" stroke-opacity=".18"/>
+    <rect x="390" y="604" width="300" height="3" fill="#221e17"/>
+    <text x="408" y="644" fill="#8b8171" font-family="Helvetica, Arial" font-size="16">离岸人民币</text>
+    <text x="408" y="690" fill="#221e17" font-family="Helvetica, Arial" font-size="32" font-weight="700">7.18</text>
+    <rect x="708" y="604" width="300" height="122" fill="#fdfaf2" stroke="#221e17" stroke-opacity=".18"/>
+    <rect x="708" y="604" width="300" height="3" fill="#221e17"/>
+    <text x="726" y="644" fill="#8b8171" font-family="Helvetica, Arial" font-size="16">美债10Y</text>
+    <text x="726" y="690" fill="#1e7a4f" font-family="Helvetica, Arial" font-size="32" font-weight="700">4.21%</text>
+  </g>
+  <rect x="72" y="786" width="566" height="620" fill="#fdfaf2" stroke="#221e17" stroke-opacity=".18"/>
+  <text x="96" y="836" fill="#8b8171" font-family="Helvetica, Arial" font-size="14" letter-spacing="3">LEAD STORY</text>
+  <text x="96" y="912" fill="#221e17" font-family="Songti SC, Georgia, serif" font-size="40" font-weight="700">多地发布数据中心</text>
+  <text x="96" y="968" fill="#221e17" font-family="Songti SC, Georgia, serif" font-size="40" font-weight="700">能效新规</text>
+  <text x="96" y="1036" fill="#4f4739" font-family="Helvetica, Arial" font-size="24">算力基建进入精细化扩张阶段，关注</text>
+  <text x="96" y="1074" fill="#4f4739" font-family="Helvetica, Arial" font-size="24">液冷渗透率与国产替代节奏。</text>
+  <rect x="662" y="786" width="346" height="300" fill="#fdfaf2" stroke="#221e17" stroke-opacity=".18"/>
+  <text x="686" y="836" fill="#8b8171" font-family="Helvetica, Arial" font-size="14" letter-spacing="3">TOP STORIES</text>
+  <rect x="686" y="862" width="298" height="90" fill="#fbf7ec" stroke="#221e17" stroke-opacity=".18"/>
+  <rect x="686" y="862" width="3" height="90" fill="#221e17"/>
+  <rect x="686" y="970" width="298" height="90" fill="#fbf7ec" stroke="#221e17" stroke-opacity=".18"/>
+  <rect x="686" y="970" width="3" height="90" fill="#221e17"/>
+  <rect x="662" y="1106" width="346" height="300" fill="#fdfaf2" stroke="#221e17" stroke-opacity=".18"/>
+  <text x="686" y="1156" fill="#8b8171" font-family="Helvetica, Arial" font-size="14" letter-spacing="3">SECTOR WATCH</text>
+  <rect x="72" y="1566" width="620" height="130" fill="#221e17" fill-opacity=".92"/>
+  <rect x="72" y="1566" width="4" height="130" fill="#b5342a"/>
+  <text x="100" y="1622" fill="#f6f1e6" font-family="Songti SC, Georgia, serif" font-size="36" font-weight="700">资金是否继续确认</text>
+  <text x="100" y="1670" fill="#f6f1e6" font-family="Songti SC, Georgia, serif" font-size="36" font-weight="700">算力主线</text>
+  <rect x="72" y="1786" width="936" height="2" fill="#221e17" fill-opacity=".18"/>
+  <rect x="72" y="1786" width="300" height="2" fill="#b5342a"/>
+</svg>

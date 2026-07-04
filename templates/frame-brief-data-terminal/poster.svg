@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#06101c"/>
+      <stop offset="1" stop-color="#0a1826"/>
+    </linearGradient>
+    <pattern id="scan" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="none"/>
+      <rect y="6" width="8" height="2" fill="#4dc3ff" fill-opacity=".035"/>
+    </pattern>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#scan)"/>
+  <rect width="2" height="1920" fill="#4dc3ff" fill-opacity=".35"/>
+  <rect x="24" y="24" width="1032" height="1872" fill="none" stroke="#4dc3ff" stroke-opacity=".16"/>
+  <rect x="72" y="90" width="54" height="54" fill="#4dc3ff" fill-opacity=".13" stroke="#4dc3ff"/>
+  <text x="99" y="128" fill="#4dc3ff" font-family="Menlo, monospace" font-size="24" text-anchor="middle">F</text>
+  <text x="148" y="110" fill="#5d7f99" font-family="Helvetica, Arial" font-size="18" letter-spacing="3">COMPANY MARKET INTELLIGENCE</text>
+  <text x="148" y="154" fill="#dcefff" font-family="Helvetica, Arial" font-size="38" font-weight="700">AI 金融早报</text>
+  <rect x="72" y="228" width="936" height="1" fill="#dcefff" fill-opacity=".32"/>
+  <text x="72" y="296" fill="#4dc3ff" font-family="Menlo, monospace" font-size="19" letter-spacing="4">MARKET THESIS</text>
+  <text x="72" y="382" fill="#dcefff" font-family="PingFang SC, Helvetica" font-size="68" font-weight="800">风险偏好回到政策</text>
+  <text x="72" y="468" fill="#dcefff" font-family="PingFang SC, Helvetica" font-size="68" font-weight="800">与算力主线</text>
+  <text x="72" y="536" fill="#a8c9e2" font-family="Helvetica, Arial" font-size="28">隔夜海外科技股修复，资金沿高确定性产业链轮动。</text>
+  <g>
+    <rect x="72" y="598" width="300" height="122" fill="#4dc3ff" fill-opacity=".06" stroke="#dcefff" stroke-opacity=".14"/>
+    <rect x="72" y="598" width="300" height="2" fill="#4dc3ff" fill-opacity=".5"/>
+    <text x="90" y="638" fill="#5d7f99" font-family="Helvetica, Arial" font-size="16">沪深300期指</text>
+    <text x="90" y="684" fill="#ff6259" font-family="Menlo, monospace" font-size="30" font-weight="700">+0.42%</text>
+    <rect x="390" y="598" width="300" height="122" fill="#4dc3ff" fill-opacity=".06" stroke="#dcefff" stroke-opacity=".14"/>
+    <rect x="390" y="598" width="300" height="2" fill="#4dc3ff" fill-opacity=".5"/>
+    <text x="408" y="638" fill="#5d7f99" font-family="Helvetica, Arial" font-size="16">离岸人民币</text>
+    <text x="408" y="684" fill="#dcefff" font-family="Menlo, monospace" font-size="30" font-weight="700">7.18</text>
+    <rect x="708" y="598" width="300" height="122" fill="#4dc3ff" fill-opacity=".06" stroke="#dcefff" stroke-opacity=".14"/>
+    <rect x="708" y="598" width="300" height="2" fill="#4dc3ff" fill-opacity=".5"/>
+    <text x="726" y="638" fill="#5d7f99" font-family="Helvetica, Arial" font-size="16">美债10Y</text>
+    <text x="726" y="684" fill="#2bd48f" font-family="Menlo, monospace" font-size="30" font-weight="700">4.21%</text>
+  </g>
+  <rect x="72" y="778" width="566" height="620" fill="#0d1e30" fill-opacity=".6" stroke="#dcefff" stroke-opacity=".14"/>
+  <text x="96" y="828" fill="#5d7f99" font-family="Menlo, monospace" font-size="14" letter-spacing="3">LEAD STORY</text>
+  <text x="96" y="904" fill="#dcefff" font-family="PingFang SC, Helvetica" font-size="40" font-weight="760">多地发布数据中心</text>
+  <text x="96" y="960" fill="#dcefff" font-family="PingFang SC, Helvetica" font-size="40" font-weight="760">能效新规</text>
+  <text x="96" y="1028" fill="#a8c9e2" font-family="Helvetica, Arial" font-size="24">算力基建进入精细化扩张阶段，关注</text>
+  <text x="96" y="1066" fill="#a8c9e2" font-family="Helvetica, Arial" font-size="24">液冷渗透率与国产替代节奏。</text>
+  <rect x="662" y="778" width="346" height="300" fill="#0d1e30" fill-opacity=".6" stroke="#dcefff" stroke-opacity=".14"/>
+  <text x="686" y="828" fill="#5d7f99" font-family="Menlo, monospace" font-size="14" letter-spacing="3">TOP STORIES</text>
+  <rect x="686" y="854" width="298" height="90" fill="#4dc3ff" fill-opacity=".05"/>
+  <rect x="686" y="854" width="3" height="90" fill="#4dc3ff" fill-opacity=".5"/>
+  <rect x="686" y="962" width="298" height="90" fill="#4dc3ff" fill-opacity=".05"/>
+  <rect x="686" y="962" width="3" height="90" fill="#4dc3ff" fill-opacity=".5"/>
+  <rect x="662" y="1098" width="346" height="300" fill="#0d1e30" fill-opacity=".6" stroke="#dcefff" stroke-opacity=".14"/>
+  <text x="686" y="1148" fill="#5d7f99" font-family="Menlo, monospace" font-size="14" letter-spacing="3">SECTOR WATCH</text>
+  <rect x="72" y="1558" width="620" height="130" fill="#040c14" fill-opacity=".85"/>
+  <rect x="72" y="1558" width="4" height="130" fill="#4dc3ff"/>
+  <text x="100" y="1614" fill="#dcefff" font-family="PingFang SC, Helvetica" font-size="36" font-weight="720">资金是否继续确认</text>
+  <text x="100" y="1662" fill="#dcefff" font-family="PingFang SC, Helvetica" font-size="36" font-weight="720">算力主线</text>
+  <rect x="72" y="1778" width="936" height="2" fill="#dcefff" fill-opacity=".14"/>
+  <rect x="72" y="1778" width="300" height="2" fill="#4dc3ff"/>
+</svg>

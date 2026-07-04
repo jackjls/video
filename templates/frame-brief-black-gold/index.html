@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finance Brief · 黑金商务</title>
+  <style>
+    :root {
+      --ink: #f3ecdd;
+      --ink-soft: #d8cdb5;
+      --muted: #8d8168;
+      --paper: #0b0a08;
+      --panel: #14110c;
+      --panel-2: #1a1610;
+      --line: rgba(243, 236, 221, .13);
+      --line-strong: rgba(212, 175, 55, .45);
+      --brand: #d4af37;
+      --brand-soft: rgba(212, 175, 55, .12);
+      --up: #e05a4e;
+      --down: #2ba66f;
+      --warn: #d8a148;
+      --neutral: #9e9787;
+      --serif: "Songti SC", "Noto Serif SC", "STSong", "SimSun", serif;
+      --w: 1080px;
+      --h: 1920px;
+    }
+
+    * { box-sizing: border-box; }
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #060504;
+      color: var(--ink);
+      font-family: "Avenir Next", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .fit {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(1200px 800px at 50% -20%, rgba(212,175,55,.05), transparent 60%),
+        #060504;
+    }
+
+    .stage {
+      position: relative;
+      width: var(--w);
+      height: var(--h);
+      overflow: hidden;
+      transform-origin: center;
+      background:
+        radial-gradient(1200px 760px at 78% -14%, rgba(212,175,55,.10), transparent 58%),
+        linear-gradient(160deg, rgba(255,255,255,.03), transparent 40%),
+        linear-gradient(180deg, #0d0b08 0%, #0b0a08 100%);
+      box-shadow: 0 24px 80px rgba(0,0,0,.6);
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, var(--brand) 0, var(--brand) 6px, transparent 6px 100%),
+        linear-gradient(180deg, transparent calc(100% - 6px), var(--brand) calc(100% - 6px));
+      opacity: .85;
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 26px;
+      border: 1px solid rgba(212,175,55,.28);
+      outline: 1px solid rgba(212,175,55,.1);
+      outline-offset: 5px;
+      pointer-events: none;
+    }
+
+    .wrap {
+      position: relative;
+      height: 100%;
+      padding: 92px 76px 248px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 36px;
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      gap: 32px;
+    }
+
+    .masthead {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 22px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 54px;
+      height: 54px;
+      border: 1px solid var(--brand);
+      background:
+        linear-gradient(135deg, rgba(212,175,55,.28), rgba(212,175,55,.06));
+      display: grid;
+      place-items: center;
+      color: var(--brand);
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .company {
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    .program {
+      margin-top: 11px;
+      font-family: var(--serif);
+      font-size: 40px;
+      line-height: 1.05;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    .edition {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 10px;
+      justify-content: end;
+      color: var(--ink-soft);
+      font-size: 18px;
+      font-weight: 650;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-bottom: 2px solid rgba(212,175,55,.4);
+      background: rgba(255,255,255,.02);
+      padding: 11px 13px;
+      min-width: 112px;
+    }
+
+    .chip strong {
+      display: block;
+      color: var(--brand);
+      font-size: 12px;
+      line-height: 1;
+      margin-bottom: 8px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 232px;
+      gap: 34px;
+      padding-top: 20px;
+      border-top: 2px solid var(--line-strong);
+    }
+
+    .kicker {
+      color: var(--brand);
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 0;
+      max-width: 742px;
+      font-family: var(--serif);
+      font-size: 72px;
+      line-height: 1.16;
+      font-weight: 700;
+      letter-spacing: .01em;
+      text-wrap: balance;
+    }
+
+    .thesis {
+      margin-top: 22px;
+      max-width: 746px;
+      color: var(--ink-soft);
+      font-size: 31px;
+      line-height: 1.46;
+      font-weight: 500;
+      text-wrap: pretty;
+    }
+
+    .mood {
+      align-self: stretch;
+      border-left: 1px solid var(--line-strong);
+      padding-left: 24px;
+      display: grid;
+      align-content: start;
+      gap: 14px;
+    }
+
+    .mood-label {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .mood-word {
+      color: var(--brand);
+      font-family: var(--serif);
+      font-size: 36px;
+      line-height: 1.05;
+      font-weight: 700;
+    }
+
+    .mood-note {
+      color: var(--ink-soft);
+      font-size: 21px;
+      line-height: 1.34;
+      font-weight: 540;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .metric {
+      min-height: 124px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(212,175,55,.06), rgba(255,255,255,.015));
+      padding: 19px 18px 17px;
+      position: relative;
+    }
+
+    .metric::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 34px;
+      height: 2px;
+      background: var(--brand);
+    }
+
+    .metric-name {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 760;
+    }
+
+    .metric-value {
+      margin-top: 17px;
+      color: var(--ink);
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 780;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .metric-change {
+      margin-top: 11px;
+      font-size: 17px;
+      line-height: 1;
+      font-weight: 760;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .up { color: var(--up); }
+    .down { color: var(--down); }
+    .neutral { color: var(--neutral); }
+
+    .content {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1.18fr .82fr;
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+      border-radius: 2px;
+      min-width: 0;
+    }
+
+    .panel-head {
+      height: 54px;
+      padding: 0 18px;
+      border-bottom: 1px solid rgba(212,175,55,.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 820;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .panel-head span:last-child {
+      color: var(--brand);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lead-story {
+      padding: 25px 26px 22px;
+      min-height: 396px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 18px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .tag {
+      border: 1px solid var(--line-strong);
+      color: var(--ink-soft);
+      padding: 7px 9px 6px;
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 820;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .tag.impact {
+      border-color: rgba(212,175,55,.6);
+      color: var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .story-title {
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 44px;
+      line-height: 1.22;
+      font-weight: 700;
+      text-wrap: balance;
+    }
+
+    .story-summary {
+      color: var(--ink-soft);
+      font-size: 25px;
+      line-height: 1.44;
+      font-weight: 500;
+      text-wrap: pretty;
+    }
+
+    .asset-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: start;
+      padding-top: 17px;
+      border-top: 1px solid var(--line);
+    }
+
+    .asset-row b {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.4;
+      font-weight: 820;
+    }
+
+    .asset-row span {
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.36;
+      font-weight: 650;
+    }
+
+    .side {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 18px;
+      min-height: 0;
+    }
+
+    .story-list {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .mini-story {
+      border: 1px solid rgba(243,236,221,.1);
+      background:
+        linear-gradient(90deg, rgba(212,175,55,.07), rgba(255,255,255,.015) 40%);
+      padding: 17px 16px 16px;
+    }
+
+    .mini-story-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--brand);
+      font-size: 13px;
+      font-weight: 820;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .mini-title {
+      margin-top: 12px;
+      color: var(--ink);
+      font-size: 24px;
+      line-height: 1.3;
+      font-weight: 740;
+    }
+
+    .mini-impact {
+      margin-top: 11px;
+      color: var(--ink-soft);
+      font-size: 17px;
+      line-height: 1.35;
+      font-weight: 560;
+    }
+
+    .watch {
+      padding: 16px;
+    }
+
+    .watch-row {
+      display: grid;
+      grid-template-columns: 76px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 46px;
+      border-bottom: 1px solid rgba(243,236,221,.1);
+      color: var(--ink-soft);
+      font-size: 17px;
+      font-weight: 620;
+    }
+
+    .watch-row:last-child { border-bottom: 0; }
+
+    .watch-row b {
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 780;
+    }
+
+    .watch-row em {
+      font-style: normal;
+      font-size: 15px;
+      font-weight: 820;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lower {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .risk,
+    .source {
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      background: rgba(255,255,255,.018);
+      padding: 18px 18px 16px;
+      min-height: 118px;
+    }
+
+    .block-label {
+      color: var(--brand);
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 820;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .block-text {
+      margin-top: 12px;
+      color: var(--ink-soft);
+      font-size: 20px;
+      line-height: 1.4;
+      font-weight: 540;
+    }
+
+    .subtitle-zone {
+      position: absolute;
+      left: 76px;
+      right: 76px;
+      bottom: 92px;
+      min-height: 124px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 24px;
+      z-index: 4;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      padding: 19px 22px 18px;
+      border-left: 4px solid var(--brand);
+      background: rgba(6,5,4,.85);
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 42px;
+      line-height: 1.32;
+      font-weight: 700;
+      text-wrap: balance;
+    }
+
+    .disclaimer {
+      width: 204px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.38;
+      font-weight: 620;
+      text-align: right;
+    }
+
+    .progress {
+      position: absolute;
+      left: 76px;
+      right: 76px;
+      bottom: 56px;
+      height: 2px;
+      background: rgba(243,236,221,.14);
+      z-index: 3;
+    }
+
+    .progress i {
+      display: block;
+      width: 18%;
+      height: 100%;
+      background: linear-gradient(90deg, #b08d2e, var(--brand));
+      transform-origin: left;
+      animation: progress 9s linear both;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(22px);
+      animation: rise .72s cubic-bezier(.18,.78,.22,1) forwards;
+    }
+
+    .r2 { animation-delay: .12s; }
+    .r3 { animation-delay: .24s; }
+    .r4 { animation-delay: .36s; }
+    .r5 { animation-delay: .52s; }
+    .r6 { animation-delay: .68s; }
+    .r7 { animation-delay: .86s; }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes progress {
+      from { transform: scaleX(.08); }
+      to { transform: scaleX(1); }
+    }
+
+    .compact .wrap {
+      padding: 62px 66px 170px;
+      gap: 24px;
+    }
+
+    .compact .program { font-size: 34px; }
+    .compact .hero {
+      grid-template-columns: 1fr 200px;
+      gap: 24px;
+      padding-top: 14px;
+    }
+    .compact h1 { font-size: 54px; max-width: 666px; }
+    .compact .thesis { font-size: 24px; margin-top: 16px; }
+    .compact .mood-word { font-size: 28px; }
+    .compact .mood-note { font-size: 17px; }
+    .compact .metrics { gap: 10px; }
+    .compact .metric { min-height: 92px; padding: 14px; }
+    .compact .metric-value { font-size: 27px; margin-top: 12px; }
+    .compact .metric-change { font-size: 14px; }
+    .compact .content {
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .compact .lead-story {
+      min-height: 292px;
+      padding: 18px;
+      gap: 12px;
+    }
+    .compact .story-title { font-size: 32px; }
+    .compact .story-summary { font-size: 19px; }
+    .compact .asset-row span { font-size: 16px; }
+    .compact .panel-head { height: 44px; }
+    .compact .story-list { padding: 12px; gap: 9px; }
+    .compact .mini-story { padding: 12px; }
+    .compact .mini-title { font-size: 19px; margin-top: 8px; }
+    .compact .mini-impact { display: none; }
+    .compact .watch { padding: 11px; }
+    .compact .watch-row {
+      min-height: 36px;
+      grid-template-columns: 58px 1fr auto;
+      font-size: 14px;
+    }
+    .compact .watch-row b { font-size: 15px; }
+    .compact .lower { display: none; }
+    .compact .subtitle-zone {
+      left: 66px;
+      right: 66px;
+      bottom: 62px;
+      min-height: 92px;
+    }
+    .compact .subtitle {
+      max-width: 740px;
+      font-size: 34px;
+      padding: 14px 18px;
+    }
+    .compact .disclaimer { font-size: 13px; width: 174px; }
+    .compact .progress {
+      left: 66px;
+      right: 66px;
+      bottom: 38px;
+    }
+  </style>
+</head>
+<body>
+  <div class="fit">
+    <div class="stage" id="stage">
+      <main class="wrap">
+        <header class="top reveal">
+          <div class="masthead">
+            <div class="mark" data-hv-text="brand_mark">F</div>
+            <div>
+              <div class="company" data-hv-text="company_name">COMPANY MARKET INTELLIGENCE</div>
+              <div class="program" data-hv-text="program_name">AI 金融早报</div>
+            </div>
+          </div>
+          <div class="edition">
+            <div class="chip"><strong>Edition</strong><span data-hv-text="brief_type">Morning</span></div>
+            <div class="chip"><strong>Date</strong><span data-hv-text="date">2026.06.29</span></div>
+            <div class="chip"><strong>Scope</strong><span data-hv-text="market_scope">A股 / 港股 / 海外</span></div>
+            <div class="chip"><strong>Cutoff</strong><span data-hv-text="cutoff_time">08:30 CST</span></div>
+          </div>
+        </header>
+
+        <section class="hero reveal r2">
+          <div>
+            <div class="kicker" data-hv-text="section_label">Market Thesis</div>
+            <h1 data-hv-text="headline">风险偏好回到政策与算力主线</h1>
+            <div class="thesis" data-hv-text="lead_thesis">隔夜海外科技股修复，人民币汇率稳定，盘前资金更可能沿着高确定性产业链做结构性轮动。</div>
+          </div>
+          <aside class="mood">
+            <div class="mood-label">Market Mood</div>
+            <div class="mood-word" data-hv-text="market_mood">结构性偏强</div>
+            <div class="mood-note" data-hv-text="mood_note">指数弹性有限，机会集中在业绩与政策共振方向。</div>
+          </aside>
+        </section>
+
+        <section class="metrics reveal r3" aria-label="market metrics">
+          <article class="metric">
+            <div class="metric-name" data-hv-text="metric_1_name">沪深300期指</div>
+            <div class="metric-value" data-hv-text="metric_1_value">+0.42%</div>
+            <div class="metric-change up" data-hv-text="metric_1_note">盘前情绪修复</div>
+          </article>
+          <article class="metric">
+            <div class="metric-name" data-hv-text="metric_2_name">离岸人民币</div>
+            <div class="metric-value" data-hv-text="metric_2_value">7.18</div>
+            <div class="metric-change neutral" data-hv-text="metric_2_note">波动收敛</div>
+          </article>
+          <article class="metric">
+            <div class="metric-name" data-hv-text="metric_3_name">美债10Y</div>
+            <div class="metric-value" data-hv-text="metric_3_value">4.21%</div>
+            <div class="metric-change down" data-hv-text="metric_3_note">估值压力边际下降</div>
+          </article>
+        </section>
+
+        <section class="content reveal r4">
+          <article class="panel">
+            <div class="panel-head"><span>Lead Story</span><span data-hv-text="lead_rank">01 / TOP</span></div>
+            <div class="lead-story">
+              <div class="tag-row">
+                <span class="tag" data-hv-text="lead_tag">政策</span>
+                <span class="tag impact" data-hv-text="lead_impact_tag">影响：算力链</span>
+              </div>
+              <div class="story-title" data-hv-text="lead_story_title">多地发布数据中心能效新规，算力基础设施进入精细化扩张阶段</div>
+              <div class="story-summary" data-hv-text="lead_story_summary">市场关注点从单纯建设规模，转向电力效率、液冷渗透率和国产服务器替代节奏。</div>
+              <div class="asset-row">
+                <b>相关资产</b>
+                <span data-hv-text="lead_related_assets">服务器、光模块、液冷、电力设备、IDC 运营商</span>
+              </div>
+            </div>
+          </article>
+
+          <aside class="side">
+            <div class="panel">
+              <div class="panel-head"><span>Top Stories</span><span data-hv-text="stories_count">03 ITEMS</span></div>
+              <div class="story-list">
+                <article class="mini-story">
+                  <div class="mini-story-top"><span data-hv-text="story_2_tag">海外</span><span data-hv-text="story_2_source">Reuters</span></div>
+                  <div class="mini-title" data-hv-text="story_2_title">美股科技龙头反弹，AI 资本开支预期继续上修</div>
+                  <div class="mini-impact" data-hv-text="story_2_impact">利好映射：算力硬件、半导体设备、先进封装。</div>
+                </article>
+                <article class="mini-story">
+                  <div class="mini-story-top"><span data-hv-text="story_3_tag">产业</span><span data-hv-text="story_3_source">公告</span></div>
+                  <div class="mini-title" data-hv-text="story_3_title">头部厂商披露新一轮订单，景气度向上游材料扩散</div>
+                  <div class="mini-impact" data-hv-text="story_3_impact">观察点：毛利率、交付周期、库存变化。</div>
+                </article>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><span>Sector Watch</span><span data-hv-text="watch_label">OPENING WATCH</span></div>
+              <div class="watch">
+                <div class="watch-row"><b data-hv-text="watch_1_name">算力</b><span data-hv-text="watch_1_reason">订单与政策共振</span><em class="up" data-hv-text="watch_1_signal">偏强</em></div>
+                <div class="watch-row"><b data-hv-text="watch_2_name">创新药</b><span data-hv-text="watch_2_reason">业绩兑现分化</span><em class="neutral" data-hv-text="watch_2_signal">观察</em></div>
+                <div class="watch-row"><b data-hv-text="watch_3_name">消费</b><span data-hv-text="watch_3_reason">数据等待验证</span><em class="down" data-hv-text="watch_3_signal">承压</em></div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="lower reveal r5">
+          <div class="risk">
+            <div class="block-label">Risk & Calendar</div>
+            <div class="block-text" data-hv-text="risk_note">关注汇率波动、成交额能否放大，以及晚间美国核心通胀数据对风险资产的再定价。</div>
+          </div>
+          <div class="source">
+            <div class="block-label">Source & Basis</div>
+            <div class="block-text" data-hv-text="source_note">来源：交易所公开数据、公司公告、公开新闻；口径：截至 08:30，仅作信息整理。</div>
+          </div>
+        </section>
+      </main>
+
+      <div class="subtitle-zone reveal r6">
+        <div class="subtitle" data-hv-text="subtitle_line">今天的关键不是指数大涨，而是资金是否继续确认算力主线。</div>
+        <div class="disclaimer" data-hv-text="disclaimer">市场信息整理，不构成任何投资建议。</div>
+      </div>
+      <div class="progress"><i></i></div>
+    </div>
+  </div>
+
+  <script>
+    const editableKeys = [
+      'brand_mark','company_name','program_name','brief_type','date','market_scope','cutoff_time',
+      'section_label','headline','lead_thesis','market_mood','mood_note',
+      'metric_1_name','metric_1_value','metric_1_note','metric_2_name','metric_2_value','metric_2_note','metric_3_name','metric_3_value','metric_3_note',
+      'lead_rank','lead_tag','lead_impact_tag','lead_story_title','lead_story_summary','lead_related_assets',
+      'stories_count','story_2_tag','story_2_source','story_2_title','story_2_impact','story_3_tag','story_3_source','story_3_title','story_3_impact',
+      'watch_label','watch_1_name','watch_1_reason','watch_1_signal','watch_2_name','watch_2_reason','watch_2_signal','watch_3_name','watch_3_reason','watch_3_signal',
+      'risk_note','source_note','subtitle_line','disclaimer'
+    ];
+
+    function applyVariables() {
+      const vars = window.__HV_VARS__ || {};
+      editableKeys.forEach((key) => {
+        if (vars[key] === undefined || vars[key] === null) return;
+        document.querySelectorAll('[data-hv-text="' + key + '"]').forEach((node) => {
+          node.textContent = String(vars[key]);
+        });
+      });
+    }
+
+    function fitStage() {
+      const stage = document.getElementById('stage');
+      const compact = innerHeight / Math.max(innerWidth, 1) < 1.55;
+      const baseW = 1080;
+      const baseH = compact ? 1350 : 1920;
+      document.documentElement.style.setProperty('--w', baseW + 'px');
+      document.documentElement.style.setProperty('--h', baseH + 'px');
+      stage.classList.toggle('compact', compact);
+      stage.style.transform = 'scale(' + Math.min(innerWidth / baseW, innerHeight / baseH) + ')';
+    }
+
+    window.addEventListener('resize', fitStage);
+    window.addEventListener('load', () => {
+      applyVariables();
+      fitStage();
+    });
+    fitStage();
+  </script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+spec_version: 1
+id: frame-brief-cream-editorial
+name: AI Finance Brief · 米白编辑部
+description: >
+  Cream editorial finance brief theme: warm paper background, ink typography,
+  editorial-red accents, serif newspaper masthead. Same input slots as
+  frame-company-finance-brief, drop-in swappable.
+
+engine: hyperframes
+engine_version: ^0.4.0
+source_entry: index.html
+
+category: social-shorts
+subcategory: finance-brief
+tags: [finance, market, news, briefing, brief, morning-brief, evening-brief, daily-brief, editorial, cream, paper, newspaper, ai-finance, chinese, subtitles, voiceover]
+
+best_for:
+  - "米白编辑部风财经早报 / 晚报"
+  - "轻松明亮的财经资讯视频"
+  - "AI 金融市场情报视频（报纸编辑部风格）"
+  - "带字幕、配音、来源口径的短视频导出"
+
+not_for:
+  - "个人 IP 口播封面"
+  - "纯行情四宫格看板"
+  - "娱乐化财经内容"
+
+output:
+  formats: [mp4, webm]
+  default_format: mp4
+  resolution:
+    default: { width: 1080, height: 1920 }
+    supported_aspects: ["9:16", "4:5"]
+  fps:
+    default: 60
+    supported: [30, 60]
+  duration:
+    type: variable
+    min_sec: 6
+    max_sec: 12
+    default_sec: 9
+  alpha: false
+  audio:
+    supported: true
+    expected_inputs: [narration, bgm]
+
+inputs:
+  schema:
+    type: object
+    required: [headline, lead_story_title]
+    properties:
+      brand_mark: { type: string, maxLength: 4 }
+      company_name: { type: string, maxLength: 48 }
+      program_name: { type: string, maxLength: 24 }
+      brief_type: { type: string, maxLength: 16, description: "Morning / Evening / 早报 / 晚报" }
+      date: { type: string, maxLength: 20 }
+      market_scope: { type: string, maxLength: 32 }
+      cutoff_time: { type: string, maxLength: 20 }
+      section_label: { type: string, maxLength: 28 }
+      headline: { type: string, maxLength: 34 }
+      lead_thesis: { type: string, maxLength: 92 }
+      market_mood: { type: string, maxLength: 16 }
+      mood_note: { type: string, maxLength: 42 }
+      metric_1_name: { type: string, maxLength: 16 }
+      metric_1_value: { type: string, maxLength: 16 }
+      metric_1_note: { type: string, maxLength: 24 }
+      metric_2_name: { type: string, maxLength: 16 }
+      metric_2_value: { type: string, maxLength: 16 }
+      metric_2_note: { type: string, maxLength: 24 }
+      metric_3_name: { type: string, maxLength: 16 }
+      metric_3_value: { type: string, maxLength: 16 }
+      metric_3_note: { type: string, maxLength: 24 }
+      lead_rank: { type: string, maxLength: 12 }
+      lead_tag: { type: string, maxLength: 8 }
+      lead_impact_tag: { type: string, maxLength: 16 }
+      lead_story_title: { type: string, maxLength: 46 }
+      lead_story_summary: { type: string, maxLength: 86 }
+      lead_related_assets: { type: string, maxLength: 64 }
+      stories_count: { type: string, maxLength: 16 }
+      story_2_tag: { type: string, maxLength: 8 }
+      story_2_source: { type: string, maxLength: 12 }
+      story_2_title: { type: string, maxLength: 34 }
+      story_2_impact: { type: string, maxLength: 46 }
+      story_3_tag: { type: string, maxLength: 8 }
+      story_3_source: { type: string, maxLength: 12 }
+      story_3_title: { type: string, maxLength: 34 }
+      story_3_impact: { type: string, maxLength: 46 }
+      watch_label: { type: string, maxLength: 18 }
+      watch_1_name: { type: string, maxLength: 8 }
+      watch_1_reason: { type: string, maxLength: 18 }
+      watch_1_signal: { type: string, maxLength: 8 }
+      watch_2_name: { type: string, maxLength: 8 }
+      watch_2_reason: { type: string, maxLength: 18 }
+      watch_2_signal: { type: string, maxLength: 8 }
+      watch_3_name: { type: string, maxLength: 8 }
+      watch_3_reason: { type: string, maxLength: 18 }
+      watch_3_signal: { type: string, maxLength: 8 }
+      risk_note: { type: string, maxLength: 76 }
+      source_note: { type: string, maxLength: 88 }
+      subtitle_line: { type: string, maxLength: 38 }
+      disclaimer: { type: string, maxLength: 34 }
+      duration_sec:
+        type: number
+        minimum: 6
+        maximum: 12
+        default: 9
+  examples:
+    - brand_mark: "F"
+      company_name: "COMPANY MARKET INTELLIGENCE"
+      program_name: "AI 金融早报"
+      brief_type: "Morning"
+      date: "2026.06.29"
+      market_scope: "A股 / 港股 / 海外"
+      cutoff_time: "08:30 CST"
+      section_label: "Market Thesis"
+      headline: "风险偏好回到政策与算力主线"
+      lead_thesis: "隔夜海外科技股修复，人民币汇率稳定，盘前资金更可能沿着高确定性产业链做结构性轮动。"
+      market_mood: "结构性偏强"
+      mood_note: "指数弹性有限，机会集中在业绩与政策共振方向。"
+      metric_1_name: "沪深300期指"
+      metric_1_value: "+0.42%"
+      metric_1_note: "盘前情绪修复"
+      metric_2_name: "离岸人民币"
+      metric_2_value: "7.18"
+      metric_2_note: "波动收敛"
+      metric_3_name: "美债10Y"
+      metric_3_value: "4.21%"
+      metric_3_note: "估值压力边际下降"
+      lead_rank: "01 / TOP"
+      lead_tag: "政策"
+      lead_impact_tag: "影响：算力链"
+      lead_story_title: "多地发布数据中心能效新规，算力基础设施进入精细化扩张阶段"
+      lead_story_summary: "市场关注点从单纯建设规模，转向电力效率、液冷渗透率和国产服务器替代节奏。"
+      lead_related_assets: "服务器、光模块、液冷、电力设备、IDC 运营商"
+      stories_count: "03 ITEMS"
+      story_2_tag: "海外"
+      story_2_source: "Reuters"
+      story_2_title: "美股科技龙头反弹，AI 资本开支预期继续上修"
+      story_2_impact: "利好映射：算力硬件、半导体设备、先进封装。"
+      story_3_tag: "产业"
+      story_3_source: "公告"
+      story_3_title: "头部厂商披露新一轮订单，景气度向上游材料扩散"
+      story_3_impact: "观察点：毛利率、交付周期、库存变化。"
+      watch_label: "OPENING WATCH"
+      watch_1_name: "算力"
+      watch_1_reason: "订单与政策共振"
+      watch_1_signal: "偏强"
+      watch_2_name: "创新药"
+      watch_2_reason: "业绩兑现分化"
+      watch_2_signal: "观察"
+      watch_3_name: "消费"
+      watch_3_reason: "数据等待验证"
+      watch_3_signal: "承压"
+      risk_note: "关注汇率波动、成交额能否放大，以及晚间美国核心通胀数据对风险资产的再定价。"
+      source_note: "来源：交易所公开数据、公司公告、公开新闻；口径：截至 08:30，仅作信息整理。"
+      subtitle_line: "今天的关键不是指数大涨，而是资金是否继续确认算力主线。"
+      disclaimer: "市场信息整理，不构成任何投资建议。"
+      duration_sec: 9
+
+license:
+  spdx: Apache-2.0
+  attribution_required: false
+  redistribution_allowed: true
+  commercial_use: true
+  notes: "米白编辑部 theme variant. Layout and input schema derived from frame-company-finance-brief (same repo, Apache-2.0); fully restyled visuals."
+
+provenance:
+  origin:
+    kind: none
+  via_skill: null
+  transformation: >
+    Derived in-repo from templates/frame-company-finance-brief (layout skeleton,
+    slot keys, fit/compact logic). Original restyling: new palette, typography,
+    textures and accent system for the 米白编辑部 theme.
+
+author:
+  name: jackjls
+  url: https://github.com/jackjls
+
+version: 0.1.0
+changelog:
+  - version: 0.1.0
+    date: 2026-07-04
+    notes: Initial 米白编辑部 theme, slot-compatible with frame-company-finance-brief.
+
+preview:
+  poster: poster.svg
