@@ -208,6 +208,9 @@ cli
       handle.close();
       process.exit(0);
     });
+    await new Promise<void>(() => {
+      // Keep the local Studio command alive after the startup action resolves.
+    });
   });
 
 cli.help();
