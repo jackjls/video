@@ -47,6 +47,10 @@ function resolveUiRoot(): string {
   return candidates[0]!;
 }
 
+/** Agents shown in the studio picker. detectAll() probes ~14 CLIs; locally
+ *  only these are in use — the rest render as "未安装" noise. */
+const STUDIO_AGENT_ALLOWLIST = new Set(['claude', 'codex']);
+
 export async function startStudioServer(ctx: CliContext, port: number): Promise<StudioHandle> {
   const uiRoot = resolveUiRoot();
 
@@ -677,7 +681,10 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
       if (url.pathname === '/api/agents' && m === 'GET') {
         const force = url.searchParams.get('force') === '1';
         const agents = await detectAll(force ? { force: true } : undefined);
-        return json(res, 200, { agents });
+        // Only surface the agents actually in use locally; the rest of the
+        // 14-entry probe list is noise in the picker.
+        const visible = agents.filter((a) => STUDIO_AGENT_ALLOWLIST.has(a.id));
+        return json(res, 200, { agents: visible });
       }
 
       // Agent models — currently AMR only. Lists the live `vela model list`
