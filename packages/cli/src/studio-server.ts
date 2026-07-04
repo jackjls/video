@@ -76,6 +76,13 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
           ...(body.intent !== undefined && { intent: body.intent as string }),
           preferences: (body.preferences as Record<string, unknown>) ?? {},
         });
+        // Seed the content-type picker as the first assistant message so it
+        // renders the moment the project opens — no "say something first"
+        // round-trip, no LLM call. detectPhase() sees this card in history and
+        // routes the user's pick straight into the content phase.
+        const seeded = [openerSeedMessage()];
+        MESSAGES.set(project.id, seeded);
+        await saveMessages(ctx, project.id, seeded);
         return json(res, 200, { project });
       }
 
@@ -1510,10 +1517,15 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
     server.listen(port, '127.0.0.1', () => {
       const addr = server.address();
       const actualPort = typeof addr === 'object' && addr ? addr.port : port;
+      // Keep the local Studio process alive in detached/background launchers.
+      const keepAlive = setInterval(() => undefined, 2 ** 30);
       resolveFn({
         url: `http://127.0.0.1:${actualPort}`,
         port: actualPort,
-        close: () => server.close(),
+        close: () => {
+          clearInterval(keepAlive);
+          server.close();
+        },
       });
     });
   });
@@ -1798,6 +1810,38 @@ interface ChatMessage {
   tool?: string;
   output?: unknown;
   ts: number;
+}
+
+/** The opener content-type card. Single source of truth: seeded into every new
+ *  project at creation time (so the picker shows immediately, without the user
+ *  having to send a first message) AND embedded in the opener prompt for the
+ *  rare path where a project somehow has no card yet. */
+const OPENER_TYPE_CARD = {
+  meta: { phase: 'type' },
+  question: '想做哪种内容？',
+  options: [
+    { label: '单帧标题卡',   hint: 'logo / 封面 / 单画面 - 5-10s' },
+    { label: '多帧预告片',   hint: '产品 / 活动 teaser, 3-6 帧' },
+    { label: '数据大字报',   hint: '1-2 个核心数字, 社媒爆款风' },
+    { label: '财经早晚报',   hint: '8 条热点 / 行情数据 / 分镜旁白' },
+    { label: '概念解说短片', hint: '几帧讲清一个 idea / feature' },
+  ],
+  allow_freeform: true,
+};
+
+/** Card answers are control input, not video topics — used to skip them when
+ *  resolving the project's opening subject. */
+const OPENER_TYPE_LABELS = new Set(OPENER_TYPE_CARD.options.map((o) => o.label));
+
+function openerSeedMessage(): ChatMessage {
+  const content = [
+    '你好！很高兴帮你制作视频 🎬',
+    '',
+    '```hv-options',
+    JSON.stringify(OPENER_TYPE_CARD, null, 2),
+    '```',
+  ].join('\n');
+  return { role: 'assistant', content, ts: Date.now() };
 }
 
 const MESSAGES = new Map<string, ChatMessage[]>();
@@ -2272,7 +2316,11 @@ function collectContentTurns(history: ChatMessage[]): string[] {
 function resolveOpeningTopic(project: { intent?: string }, history: ChatMessage[]): string {
   const fromIntent = project.intent?.trim();
   if (fromIntent) return fromIntent.slice(0, 200);
-  const firstUser = history.find((m) => m.role === 'user')?.content ?? '';
+  // Skip type-card answers ("财经早晚报" etc.) — with the seeded opener card
+  // the FIRST user turn is usually a card click, not the opening request.
+  const firstUser = history.find(
+    (m) => m.role === 'user' && !OPENER_TYPE_LABELS.has(m.content?.trim() ?? ''),
+  )?.content ?? '';
   const clean = (firstUser.split('\n\n📎')[0] ?? '').trim();
   // Don't lock onto a bare control phrase ("继续" / "ok") if that's somehow first.
   if (!clean || isControlPhrase(clean)) return '';
@@ -2645,18 +2693,7 @@ function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
     opener.push(`1. ONE friendly opening sentence in the user's language (≤ 25 chars).`);
     opener.push(`2. A fenced \`\`\`hv-options block with the 5 content-type choices below. JSON shape EXACTLY as shown — do not change keys or omit "meta":`);
     opener.push('```hv-options');
-    opener.push(JSON.stringify({
-      meta: { phase: 'type' },
-      question: '想做哪种内容？',
-      options: [
-        { label: '单帧标题卡',   hint: 'logo / 封面 / 单画面 - 5-10s' },
-        { label: '多帧预告片',   hint: '产品 / 活动 teaser, 3-6 帧' },
-        { label: '数据大字报',   hint: '1-2 个核心数字, 社媒爆款风' },
-        { label: '财经早晚报',   hint: '8 条热点 / 行情数据 / 分镜旁白' },
-        { label: '概念解说短片', hint: '几帧讲清一个 idea / feature' },
-      ],
-      allow_freeform: true,
-    }, null, 2));
+    opener.push(JSON.stringify(OPENER_TYPE_CARD, null, 2));
     opener.push('```');
     opener.push('');
     if (tmpl) {
@@ -2699,7 +2736,9 @@ function buildHtmlGenerationPrompt(args: BuildPromptArgs): string {
     // "随机/随便/anything" silently become a literal NEW topic — that's how a
     // "promote Open Design" request turned into a probability explainer.
     {
-      const openingTopic = history.find((m) => m.role === 'user')?.content?.trim().slice(0, 200);
+      const openingTopic = history.find(
+        (m) => m.role === 'user' && !OPENER_TYPE_LABELS.has(m.content?.trim() ?? ''),
+      )?.content?.trim().slice(0, 200);
       if (openingTopic) {
         p.push(`The user's ORIGINAL opening request was: "${openingTopic}". Treat this as the LOCKED subject of the video unless the user clearly asks to change it.`);
         p.push(`If the user's answer this turn CONTRADICTS or seems unrelated to that subject (e.g. they opened with a product/brand video but now answer with an off-topic word), do NOT silently switch topics. Ask ONE short clarifying question: keep the original subject (with the new word as a detail/example/angle), or genuinely change the subject? Treat vague answers like "随机 / 随便 / anything / 你定 / whatever" as "you decide the details, KEEP the original subject" — never as a literal new topic.`);
