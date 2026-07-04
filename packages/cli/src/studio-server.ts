@@ -112,10 +112,12 @@ export async function startStudioServer(ctx: CliContext, port: number): Promise<
         }
       }
 
-      // List engines + templates
+      // List engines + templates. Hidden templates (engine infrastructure like
+      // the native Remotion frame-data-rollup) stay resolvable by id but are
+      // excluded from the picker.
       if (url.pathname === '/api/templates' && m === 'GET') {
         return json(res, 200, {
-          templates: ctx.templates.list().map((t) => {
+          templates: ctx.templates.list().filter((t) => !t.hidden).map((t) => {
             // Decide how the gallery should preview this template:
             //  - 'iframe'  → the entry HTML is self-contained; render it live.
             //  - 'poster'  → the entry only references sub-compositions via

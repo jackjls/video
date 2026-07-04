@@ -247,6 +247,12 @@ export interface TemplateMetadata {
    * for the classic HTML+CSS+GSAP templates (the 27 hyperframes ones).
    */
   native?: { compositionId: string };
+  /**
+   * Hidden templates stay loaded in the registry (engine features like the
+   * Remotion enhance flow resolve them by id) but are excluded from the studio
+   * template picker and gallery.
+   */
+  hidden?: boolean;
   category: TemplateCategory;
   subcategory?: string;
   tags: string[];

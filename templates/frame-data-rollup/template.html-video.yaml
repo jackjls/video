@@ -16,6 +16,10 @@ source_entry: source/entry.ts
 native:
   compositionId: DataRollup
 
+# Engine infrastructure: the ⚡ Remotion enhance flow resolves this template by
+# id. Hidden so it doesn't appear in the studio template picker.
+hidden: true
+
 category: data-viz
 subcategory: bar-chart
 tags: [data, chart, bar, rollup, count-up, remotion, native, animated, kpi]
